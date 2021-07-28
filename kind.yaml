@@ -1,0 +1,18 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes: 
+- role: control-plane
+  extraMounts:
+  - hostPath: /tmp/audit
+    containerPath: /tmp/audit
+kubeadmConfigPatches:
+- |
+  kind: ClusterConfiguration
+  apiServer:
+    extraArgs:
+      audit-log-path: "/tmp/audit/audit.log"
+      audit-policy-file: "/tmp/audit/policy.yaml"
+    extraVolumes:
+    - name: audit
+      hostPath: /tmp/audit
+      mountPath: /tmp/audit

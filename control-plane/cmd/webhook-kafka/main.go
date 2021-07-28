@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -30,8 +31,7 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 
-	sourcesv1beta1 "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
-
+	customcorev1 "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/core/v1"
 	eventingv1alpha1 "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/eventing/v1alpha1"
 )
 
@@ -41,7 +41,6 @@ const (
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	eventingv1alpha1.SchemeGroupVersion.WithKind("KafkaSink"): &eventingv1alpha1.KafkaSink{},
-	sourcesv1beta1.SchemeGroupVersion.WithKind("KafkaSource"): &sourcesv1beta1.KafkaSource{},
 }
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{}
@@ -64,6 +63,33 @@ func NewDefaultingAdmissionController(ctx context.Context, _ configmap.Watcher) 
 
 		// The resources to default.
 		types,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		ctxFunc,
+
+		// Whether to disallow unknown fields.
+		false,
+	)
+}
+
+func NewDispatcherDefaultingAdmissionController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
+
+	// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+	ctxFunc := func(ctx context.Context) context.Context {
+		return ctx
+	}
+
+	return defaulting.NewAdmissionController(ctx,
+		// Name of the resource webhook.
+		"dataplane.defaulting.webhook.kafka.eventing.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/defaulting-config-map",
+
+		// The resources to default.
+		map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
+			corev1.SchemeGroupVersion.WithKind("Pod"): &customcorev1.Pod{},
+		},
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
 		ctxFunc,
@@ -110,6 +136,7 @@ func main() {
 	sharedmain.MainWithContext(ctx, webhook.NameFromEnv(),
 		certificates.NewController,
 		NewDefaultingAdmissionController,
+		NewDispatcherDefaultingAdmissionController,
 		NewValidationAdmissionController,
 	)
 }
