@@ -21,10 +21,10 @@ metadata:
 webhooks:
   - admissionReviewVersions: [ "v1", "v1beta1" ]
     rules:
-      - operations: [ "CREATE", "UPDATE" ]
+      - operations: [ "CREATE" ]
         apiGroups: [ "*" ]
         apiVersions: [ "*" ]
-        resources: [ "pods", "pods/spec" ]
+        resources: [ "pods", "pods/spec", "pods/status" ]
         scope: "Namespaced"
     objectSelector:
       matchLabels:

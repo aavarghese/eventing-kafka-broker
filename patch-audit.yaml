@@ -1,0 +1,734 @@
+{
+  "kind": "Event",
+  "apiVersion": "audit.k8s.io/v1",
+  "level": "RequestResponse",
+  "auditID": "01d3dcee-a866-4947-be4a-c6eb32812939",
+  "stage": "ResponseComplete",
+  "requestURI": "/api/v1/namespaces/knative-eventing/pods/kafka-broker-dispatcher-cfcfdd56-8cwsf/status",
+  "verb": "patch",
+  "user": {
+    "username": "system:node:kind-control-plane",
+    "groups": [
+        "system:nodes",
+        "system:authenticated"
+    ]
+  },
+  "sourceIPs": [
+      "172.18.0.2"
+  ],
+  "userAgent": "kubelet/v1.21.1 (linux/amd64) kubernetes/5e58841",
+  "objectRef": {
+    "resource": "pods",
+    "namespace": "knative-eventing",
+    "name": "kafka-broker-dispatcher-cfcfdd56-8cwsf",
+    "apiVersion": "v1",
+    "subresource": "status"
+  },
+  "responseStatus": {
+    "metadata": { },
+    "code": 200
+  },
+  "requestObject": {
+    "metadata": {
+      "uid": "af75711c-11fa-4069-b9dc-dbd41ce52f3b"
+    },
+    "status": {
+      "containerStatuses": [
+        {
+          "containerID": "containerd://5d782d64194dae5408d29c52ebdcfedf99ea4cbfa23408d805b41a43b1440810",
+          "image": "docker.io/pierdipi/knative-kafka-broker-dispatcher:d0173494-f864-11eb-8d9e-60f677bec9e0",
+          "imageID": "docker.io/pierdipi/knative-kafka-broker-dispatcher@sha256:323c46f204d647a16ffda467f3038886e7d4c9cd5b556b73c29755a91494e22f",
+          "lastState": {
+            "terminated": {
+              "containerID": "containerd://dacf3f4cb340bc29733ac5b0b615d817d864af91145681d84f959ecd4502beb4",
+              "exitCode": 1,
+              "finishedAt": "2021-08-08T16:40:24Z",
+              "message": "lient.properties', egressesInitialCapacity=20} BaseEnv{producerConfigFilePath='/etc/config/config-kafka-broker-producer.properties', dataPlaneConfigFilePath='/etc/brokers-triggers/data', metricsPort=9090, metricsPath='/metrics', metricsPublishQuantiles=false}\",\"logger_name\":\"dev.knative.eventing.kafka.broker.dispatcher.main.Main\",\"thread_name\":\"main\",\"level\":\"INFO\",\"level_value\":20000,\"env\":{\"producerConfigFilePath\":\"/etc/config/config-kafka-broker-producer.properties\",\"dataPlaneConfigFilePath\":\"/etc/brokers-triggers/data\",\"metricsPort\":9090,\"metricsPath\":\"/metrics\",\"metricsJvmEnabled\":false,\"configTracingPath\":\"/etc/tracing\",\"waitStartupSeconds\":8,\"consumerConfigFilePath\":\"/etc/config/config-kafka-broker-consumer.properties\",\"webClientConfigFilePath\":\"/etc/config/config-kafka-broker-webclient.properties\",\"egressesInitialCapacity\":20,\"publishQuantilesEnabled\":false}}\n{\"@timestamp\":\"2021-08-08T16:40:24.241Z\",\"@version\":\"1\",\"message\":\"Consumer deployer started\",\"logger_name\":\"dev.knative.eventing.kafka.broker.dispatcher.main.Main\",\"thread_name\":\"main\",\"level\":\"INFO\",\"level_value\":20000}\n{\"@timestamp\":\"2021-08-08T16:40:24.245Z\",\"@version\":\"1\",\"message\":\"Failed to startup the dispatcher\",\"logger_name\":\"dev.knative.eventing.kafka.broker.dispatcher.main.Main\",\"thread_name\":\"main\",\"level\":\"ERROR\",\"level_value\":40000,\"stack_trace\":\"java.nio.file.NoSuchFileException: /etc/brokers-triggers\\n\\tat java.base/sun.nio.fs.UnixException.translateToIOException(Unknown Source)\\n\\tat java.base/sun.nio.fs.UnixException.asIOException(Unknown Source)\\n\\tat java.base/sun.nio.fs.LinuxWatchService$Poller.implRegister(Unknown Source)\\n\\tat java.base/sun.nio.fs.AbstractPoller.processRequests(Unknown Source)\\n\\tat java.base/sun.nio.fs.LinuxWatchService$Poller.run(Unknown Source)\\n\\tat java.base/java.lang.Thread.run(Unknown Source)\\n\"}\n{\"@timestamp\":\"2021-08-08T16:40:24.246Z\",\"@version\":\"1\",\"message\":\"Closing Vert.x\",\"logger_name\":\"dev.knative.eventing.kafka.broker.core.utils.Shutdown\",\"thread_name\":\"main\",\"level\":\"INFO\",\"level_value\":20000}\n",
+              "reason": "Error",
+              "startedAt": "2021-08-08T16:40:23Z"
+            }
+          },
+          "name": "kafka-broker-dispatcher",
+          "ready": false,
+          "restartCount": 8,
+          "started": true,
+          "state": {
+            "running": {
+              "startedAt": "2021-08-08T16:45:26Z"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "responseObject": {
+    "kind": "Pod",
+    "apiVersion": "v1",
+    "metadata": {
+      "name": "kafka-broker-dispatcher-cfcfdd56-8cwsf",
+      "generateName": "kafka-broker-dispatcher-cfcfdd56-",
+      "namespace": "knative-eventing",
+      "uid": "af75711c-11fa-4069-b9dc-dbd41ce52f3b",
+      "resourceVersion": "17641",
+      "creationTimestamp": "2021-08-08T16:29:07Z",
+      "labels": {
+        "app": "kafka-broker-dispatcher",
+        "kafka.eventing.knative.dev/release": "devel",
+        "pod-template-hash": "cfcfdd56"
+      },
+      "ownerReferences": [
+        {
+          "apiVersion": "apps/v1",
+          "kind": "ReplicaSet",
+          "name": "kafka-broker-dispatcher-cfcfdd56",
+          "uid": "f57180db-0158-454d-b2d7-3916c4f838fa",
+          "controller": true,
+          "blockOwnerDeletion": true
+        }
+      ],
+      "managedFields": [
+        {
+          "manager": "kube-controller-manager",
+          "operation": "Update",
+          "apiVersion": "v1",
+          "time": "2021-08-08T16:29:07Z",
+          "fieldsType": "FieldsV1",
+          "fieldsV1": {
+            "f:metadata": {
+              "f:generateName": { },
+              "f:labels": {
+                ".": { },
+                "f:app": { },
+                "f:kafka.eventing.knative.dev/release": { },
+                "f:pod-template-hash": { }
+              },
+              "f:ownerReferences": {
+                ".": { },
+                "k:{\"uid\":\"f57180db-0158-454d-b2d7-3916c4f838fa\"}": {
+                  ".": { },
+                  "f:apiVersion": { },
+                  "f:blockOwnerDeletion": { },
+                  "f:controller": { },
+                  "f:kind": { },
+                  "f:name": { },
+                  "f:uid": { }
+                }
+              }
+            },
+            "f:spec": {
+              "f:containers": {
+                "k:{\"name\":\"kafka-broker-dispatcher\"}": {
+                  ".": { },
+                  "f:args": { },
+                  "f:command": { },
+                  "f:env": {
+                    ".": { },
+                    "k:{\"name\":\"CONFIG_TRACING_PATH\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"CONSUMER_CONFIG_FILE_PATH\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"DATA_PLANE_CONFIG_FILE_PATH\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"EGRESSES_INITIAL_CAPACITY\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"HTTP2_DISABLE\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"INSTANCE_ID\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:valueFrom": {
+                        ".": { },
+                        "f:fieldRef": {
+                          ".": { },
+                          "f:apiVersion": { },
+                          "f:fieldPath": { }
+                        }
+                      }
+                    },
+                    "k:{\"name\":\"METRICS_JVM_ENABLED\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"METRICS_PATH\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"METRICS_PORT\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"METRICS_PUBLISH_QUANTILES\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"PRODUCER_CONFIG_FILE_PATH\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"SERVICE_NAME\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"SERVICE_NAMESPACE\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:valueFrom": {
+                        ".": { },
+                        "f:fieldRef": {
+                          ".": { },
+                          "f:apiVersion": { },
+                          "f:fieldPath": { }
+                        }
+                      }
+                    },
+                    "k:{\"name\":\"WAIT_STARTUP_SECONDS\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    },
+                    "k:{\"name\":\"WEBCLIENT_CONFIG_FILE_PATH\"}": {
+                      ".": { },
+                      "f:name": { },
+                      "f:value": { }
+                    }
+                  },
+                  "f:image": { },
+                  "f:imagePullPolicy": { },
+                  "f:livenessProbe": {
+                    ".": { },
+                    "f:failureThreshold": { },
+                    "f:httpGet": {
+                      ".": { },
+                      "f:path": { },
+                      "f:port": { },
+                      "f:scheme": { }
+                    },
+                    "f:initialDelaySeconds": { },
+                    "f:periodSeconds": { },
+                    "f:successThreshold": { },
+                    "f:timeoutSeconds": { }
+                  },
+                  "f:name": { },
+                  "f:ports": {
+                    ".": { },
+                    "k:{\"containerPort\":9090,\"protocol\":\"TCP\"}": {
+                      ".": { },
+                      "f:containerPort": { },
+                      "f:name": { },
+                      "f:protocol": { }
+                    }
+                  },
+                  "f:readinessProbe": {
+                    ".": { },
+                    "f:failureThreshold": { },
+                    "f:httpGet": {
+                      ".": { },
+                      "f:path": { },
+                      "f:port": { },
+                      "f:scheme": { }
+                    },
+                    "f:initialDelaySeconds": { },
+                    "f:periodSeconds": { },
+                    "f:successThreshold": { },
+                    "f:timeoutSeconds": { }
+                  },
+                  "f:resources": { },
+                  "f:securityContext": {
+                    ".": { },
+                    "f:allowPrivilegeEscalation": { },
+                    "f:privileged": { },
+                    "f:readOnlyRootFilesystem": { }
+                  },
+                  "f:terminationMessagePath": { },
+                  "f:terminationMessagePolicy": { },
+                  "f:volumeMounts": {
+                    ".": { },
+                    "k:{\"mountPath\":\"/etc/config\"}": {
+                      ".": { },
+                      "f:mountPath": { },
+                      "f:name": { },
+                      "f:readOnly": { }
+                    },
+                    "k:{\"mountPath\":\"/etc/logging\"}": {
+                      ".": { },
+                      "f:mountPath": { },
+                      "f:name": { },
+                      "f:readOnly": { }
+                    },
+                    "k:{\"mountPath\":\"/etc/tracing\"}": {
+                      ".": { },
+                      "f:mountPath": { },
+                      "f:name": { },
+                      "f:readOnly": { }
+                    },
+                    "k:{\"mountPath\":\"/tmp\"}": {
+                      ".": { },
+                      "f:mountPath": { },
+                      "f:name": { }
+                    }
+                  }
+                }
+              },
+              "f:dnsConfig": {
+                ".": { },
+                "f:options": { }
+              },
+              "f:dnsPolicy": { },
+              "f:enableServiceLinks": { },
+              "f:restartPolicy": { },
+              "f:schedulerName": { },
+              "f:securityContext": {
+                ".": { },
+                "f:runAsNonRoot": { }
+              },
+              "f:serviceAccount": { },
+              "f:serviceAccountName": { },
+              "f:terminationGracePeriodSeconds": { },
+              "f:volumes": {
+                ".": { },
+                "k:{\"name\":\"cache\"}": {
+                  ".": { },
+                  "f:emptyDir": { },
+                  "f:name": { }
+                },
+                "k:{\"name\":\"config-kafka-broker-data-plane\"}": {
+                  ".": { },
+                  "f:configMap": {
+                    ".": { },
+                    "f:defaultMode": { },
+                    "f:name": { }
+                  },
+                  "f:name": { }
+                },
+                "k:{\"name\":\"config-tracing\"}": {
+                  ".": { },
+                  "f:configMap": {
+                    ".": { },
+                    "f:defaultMode": { },
+                    "f:name": { }
+                  },
+                  "f:name": { }
+                },
+                "k:{\"name\":\"kafka-broker-config-logging\"}": {
+                  ".": { },
+                  "f:configMap": {
+                    ".": { },
+                    "f:defaultMode": { },
+                    "f:name": { }
+                  },
+                  "f:name": { }
+                }
+              }
+            }
+          }
+        },
+        {
+          "manager": "kubelet",
+          "operation": "Update",
+          "apiVersion": "v1",
+          "time": "2021-08-08T16:29:31Z",
+          "fieldsType": "FieldsV1",
+          "fieldsV1": {
+            "f:status": {
+              "f:conditions": {
+                "k:{\"type\":\"ContainersReady\"}": {
+                  ".": { },
+                  "f:lastProbeTime": { },
+                  "f:lastTransitionTime": { },
+                  "f:message": { },
+                  "f:reason": { },
+                  "f:status": { },
+                  "f:type": { }
+                },
+                "k:{\"type\":\"Initialized\"}": {
+                  ".": { },
+                  "f:lastProbeTime": { },
+                  "f:lastTransitionTime": { },
+                  "f:status": { },
+                  "f:type": { }
+                },
+                "k:{\"type\":\"Ready\"}": {
+                  ".": { },
+                  "f:lastProbeTime": { },
+                  "f:lastTransitionTime": { },
+                  "f:message": { },
+                  "f:reason": { },
+                  "f:status": { },
+                  "f:type": { }
+                }
+              },
+              "f:containerStatuses": { },
+              "f:hostIP": { },
+              "f:phase": { },
+              "f:podIP": { },
+              "f:podIPs": {
+                ".": { },
+                "k:{\"ip\":\"10.244.0.16\"}": {
+                  ".": { },
+                  "f:ip": { }
+                }
+              },
+              "f:startTime": { }
+            }
+          }
+        }
+      ]
+    },
+    "spec": {
+      "volumes": [
+        {
+          "name": "config-kafka-broker-data-plane",
+          "configMap": {
+            "name": "config-kafka-broker-data-plane",
+            "defaultMode": 420
+          }
+        },
+        {
+          "name": "cache",
+          "emptyDir": { }
+        },
+        {
+          "name": "kafka-broker-config-logging",
+          "configMap": {
+            "name": "kafka-config-logging",
+            "defaultMode": 420
+          }
+        },
+        {
+          "name": "config-tracing",
+          "configMap": {
+            "name": "config-tracing",
+            "defaultMode": 420
+          }
+        },
+        {
+          "name": "kube-api-access-gt2f8",
+          "projected": {
+            "sources": [
+              {
+                "serviceAccountToken": {
+                  "expirationSeconds": 3607,
+                  "path": "token"
+                }
+              },
+              {
+                "configMap": {
+                  "name": "kube-root-ca.crt",
+                  "items": [
+                    {
+                      "key": "ca.crt",
+                      "path": "ca.crt"
+                    }
+                  ]
+                }
+              },
+              {
+                "downwardAPI": {
+                  "items": [
+                    {
+                      "path": "namespace",
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "defaultMode": 420
+          }
+        }
+      ],
+      "containers": [
+        {
+          "name": "kafka-broker-dispatcher",
+          "image": "docker.io/pierdipi/knative-kafka-broker-dispatcher:d0173494-f864-11eb-8d9e-60f677bec9e0",
+          "command": [
+              "java"
+          ],
+          "args": [
+              "-Dlogback.configurationFile=/etc/logging/config.xml",
+              "-jar",
+              "/app/app.jar"
+          ],
+          "ports": [
+            {
+              "name": "http-metrics",
+              "containerPort": 9090,
+              "protocol": "TCP"
+            }
+          ],
+          "env": [
+            {
+              "name": "SERVICE_NAME",
+              "value": "kafka-broker-dispatcher"
+            },
+            {
+              "name": "SERVICE_NAMESPACE",
+              "valueFrom": {
+                "fieldRef": {
+                  "apiVersion": "v1",
+                  "fieldPath": "metadata.namespace"
+                }
+              }
+            },
+            {
+              "name": "PRODUCER_CONFIG_FILE_PATH",
+              "value": "/etc/config/config-kafka-broker-producer.properties"
+            },
+            {
+              "name": "CONSUMER_CONFIG_FILE_PATH",
+              "value": "/etc/config/config-kafka-broker-consumer.properties"
+            },
+            {
+              "name": "WEBCLIENT_CONFIG_FILE_PATH",
+              "value": "/etc/config/config-kafka-broker-webclient.properties"
+            },
+            {
+              "name": "DATA_PLANE_CONFIG_FILE_PATH",
+              "value": "/etc/brokers-triggers/data"
+            },
+            {
+              "name": "EGRESSES_INITIAL_CAPACITY",
+              "value": "20"
+            },
+            {
+              "name": "INSTANCE_ID",
+              "valueFrom": {
+                "fieldRef": {
+                  "apiVersion": "v1",
+                  "fieldPath": "metadata.uid"
+                }
+              }
+            },
+            {
+              "name": "METRICS_PATH",
+              "value": "/metrics"
+            },
+            {
+              "name": "METRICS_PORT",
+              "value": "9090"
+            },
+            {
+              "name": "METRICS_PUBLISH_QUANTILES",
+              "value": "false"
+            },
+            {
+              "name": "METRICS_JVM_ENABLED",
+              "value": "false"
+            },
+            {
+              "name": "CONFIG_TRACING_PATH",
+              "value": "/etc/tracing"
+            },
+            {
+              "name": "HTTP2_DISABLE",
+              "value": "true"
+            },
+            {
+              "name": "WAIT_STARTUP_SECONDS",
+              "value": "8"
+            }
+          ],
+          "resources": { },
+          "volumeMounts": [
+            {
+              "name": "config-kafka-broker-data-plane",
+              "readOnly": true,
+              "mountPath": "/etc/config"
+            },
+            {
+              "name": "cache",
+              "mountPath": "/tmp"
+            },
+            {
+              "name": "kafka-broker-config-logging",
+              "readOnly": true,
+              "mountPath": "/etc/logging"
+            },
+            {
+              "name": "config-tracing",
+              "readOnly": true,
+              "mountPath": "/etc/tracing"
+            },
+            {
+              "name": "kube-api-access-gt2f8",
+              "readOnly": true,
+              "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
+            }
+          ],
+          "livenessProbe": {
+            "httpGet": {
+              "path": "/metrics",
+              "port": 9090,
+              "scheme": "HTTP"
+            },
+            "initialDelaySeconds": 10,
+            "timeoutSeconds": 1,
+            "periodSeconds": 3,
+            "successThreshold": 1,
+            "failureThreshold": 3
+          },
+          "readinessProbe": {
+            "httpGet": {
+              "path": "/metrics",
+              "port": 9090,
+              "scheme": "HTTP"
+            },
+            "initialDelaySeconds": 10,
+            "timeoutSeconds": 1,
+            "periodSeconds": 3,
+            "successThreshold": 1,
+            "failureThreshold": 3
+          },
+          "terminationMessagePath": "/dev/temination-log",
+          "terminationMessagePolicy": "FallbackToLogsOnError",
+          "imagePullPolicy": "IfNotPresent",
+          "securityContext": {
+            "privileged": false,
+            "readOnlyRootFilesystem": true,
+            "allowPrivilegeEscalation": false
+          }
+        }
+      ],
+      "restartPolicy": "Always",
+      "terminationGracePeriodSeconds": 30,
+      "dnsPolicy": "ClusterFirst",
+      "serviceAccountName": "knative-kafka-data-plane",
+      "serviceAccount": "knative-kafka-data-plane",
+      "nodeName": "kind-control-plane",
+      "securityContext": {
+        "runAsNonRoot": true
+      },
+      "schedulerName": "default-scheduler",
+      "tolerations": [
+        {
+          "key": "node.kubernetes.io/not-ready",
+          "operator": "Exists",
+          "effect": "NoExecute",
+          "tolerationSeconds": 300
+        },
+        {
+          "key": "node.kubernetes.io/unreachable",
+          "operator": "Exists",
+          "effect": "NoExecute",
+          "tolerationSeconds": 300
+        }
+      ],
+      "priority": 0,
+      "dnsConfig": {
+        "options": [
+          {
+            "name": "single-request-reopen"
+          }
+        ]
+      },
+      "enableServiceLinks": true,
+      "preemptionPolicy": "PreemptLowerPriority"
+    },
+    "status": {
+      "phase": "Running",
+      "conditions": [
+        {
+          "type": "Initialized",
+          "status": "True",
+          "lastProbeTime": null,
+          "lastTransitionTime": "2021-08-08T16:29:07Z"
+        },
+        {
+          "type": "Ready",
+          "status": "False",
+          "lastProbeTime": null,
+          "lastTransitionTime": "2021-08-08T16:29:07Z",
+          "reason": "ContainersNotReady",
+          "message": "containers with unready status: [kafka-broker-dispatcher]"
+        },
+        {
+          "type": "ContainersReady",
+          "status": "False",
+          "lastProbeTime": null,
+          "lastTransitionTime": "2021-08-08T16:29:07Z",
+          "reason": "ContainersNotReady",
+          "message": "containers with unready status: [kafka-broker-dispatcher]"
+        },
+        {
+          "type": "PodScheduled",
+          "status": "True",
+          "lastProbeTime": null,
+          "lastTransitionTime": "2021-08-08T16:29:07Z"
+        }
+      ],
+      "hostIP": "172.18.0.2",
+      "podIP": "10.244.0.16",
+      "podIPs": [
+        {
+          "ip": "10.244.0.16"
+        }
+      ],
+      "startTime": "2021-08-08T16:29:07Z",
+      "containerStatuses": [
+        {
+          "name": "kafka-broker-dispatcher",
+          "state": {
+            "running": {
+              "startedAt": "2021-08-08T16:45:26Z"
+            }
+          },
+          "lastState": {
+            "terminated": {
+              "exitCode": 1,
+              "reason": "Error",
+              "message": "lient.properties', egressesInitialCapacity=20} BaseEnv{producerConfigFilePath='/etc/config/config-kafka-broker-producer.properties', dataPlaneConfigFilePath='/etc/brokers-triggers/data', metricsPort=9090, metricsPath='/metrics', metricsPublishQuantiles=false}\",\"logger_name\":\"dev.knative.eventing.kafka.broker.dispatcher.main.Main\",\"thread_name\":\"main\",\"level\":\"INFO\",\"level_value\":20000,\"env\":{\"producerConfigFilePath\":\"/etc/config/config-kafka-broker-producer.properties\",\"dataPlaneConfigFilePath\":\"/etc/brokers-triggers/data\",\"metricsPort\":9090,\"metricsPath\":\"/metrics\",\"metricsJvmEnabled\":false,\"configTracingPath\":\"/etc/tracing\",\"waitStartupSeconds\":8,\"consumerConfigFilePath\":\"/etc/config/config-kafka-broker-consumer.properties\",\"webClientConfigFilePath\":\"/etc/config/config-kafka-broker-webclient.properties\",\"egressesInitialCapacity\":20,\"publishQuantilesEnabled\":false}}\n{\"@timestamp\":\"2021-08-08T16:40:24.241Z\",\"@version\":\"1\",\"message\":\"Consumer deployer started\",\"logger_name\":\"dev.knative.eventing.kafka.broker.dispatcher.main.Main\",\"thread_name\":\"main\",\"level\":\"INFO\",\"level_value\":20000}\n{\"@timestamp\":\"2021-08-08T16:40:24.245Z\",\"@version\":\"1\",\"message\":\"Failed to startup the dispatcher\",\"logger_name\":\"dev.knative.eventing.kafka.broker.dispatcher.main.Main\",\"thread_name\":\"main\",\"level\":\"ERROR\",\"level_value\":40000,\"stack_trace\":\"java.nio.file.NoSuchFileException: /etc/brokers-triggers\\n\\tat java.base/sun.nio.fs.UnixException.translateToIOException(Unknown Source)\\n\\tat java.base/sun.nio.fs.UnixException.asIOException(Unknown Source)\\n\\tat java.base/sun.nio.fs.LinuxWatchService$Poller.implRegister(Unknown Source)\\n\\tat java.base/sun.nio.fs.AbstractPoller.processRequests(Unknown Source)\\n\\tat java.base/sun.nio.fs.LinuxWatchService$Poller.run(Unknown Source)\\n\\tat java.base/java.lang.Thread.run(Unknown Source)\\n\"}\n{\"@timestamp\":\"2021-08-08T16:40:24.246Z\",\"@version\":\"1\",\"message\":\"Closing Vert.x\",\"logger_name\":\"dev.knative.eventing.kafka.broker.core.utils.Shutdown\",\"thread_name\":\"main\",\"level\":\"INFO\",\"level_value\":20000}\n",
+              "startedAt": "2021-08-08T16:40:23Z",
+              "finishedAt": "2021-08-08T16:40:24Z",
+              "containerID": "containerd://dacf3f4cb340bc29733ac5b0b615d817d864af91145681d84f959ecd4502beb4"
+            }
+          },
+          "ready": false,
+          "restartCount": 8,
+          "image": "docker.io/pierdipi/knative-kafka-broker-dispatcher:d0173494-f864-11eb-8d9e-60f677bec9e0",
+          "imageID": "docker.io/pierdipi/knative-kafka-broker-dispatcher@sha256:323c46f204d647a16ffda467f3038886e7d4c9cd5b556b73c29755a91494e22f",
+          "containerID": "containerd://5d782d64194dae5408d29c52ebdcfedf99ea4cbfa23408d805b41a43b1440810",
+          "started": true
+        }
+      ],
+      "qosClass": "BestEffort"
+    }
+  },
+  "requestReceivedTimestamp": "2021-08-08T16:45:26.881791Z",
+  "stageTimestamp": "2021-08-08T16:45:26.894891Z",
+  "annotations": {
+    "authorization.k8s.io/decision": "allow",
+    "authorization.k8s.io/reason": "",
+    "mutation.webhook.admission.k8s.io/round_0_index_0": "{\"configuration\":\"dataplane.defaulting.webhook.kafka.eventing.knative.dev\",\"webhook\":\"dataplane.defaulting.webhook.kafka.eventing.knative.dev\",\"mutated\":true}",
+    "patch.webhook.admission.k8s.io/round_0_index_0": "{\"configuration\":\"dataplane.defaulting.webhook.kafka.eventing.knative.dev\",\"webhook\":\"dataplane.defaulting.webhook.kafka.eventing.knative.dev\",\"patch\":[{\"op\":\"add\",\"path\":\"/spec/containers/0/volumeMounts/5\",\"value\":{\"mountPath\":\"/etc/brokers-triggers\",\"name\":\"kafka-broker-brokers-triggers\",\"readOnly\":true}},{\"op\":\"add\",\"path\":\"/spec/volumes/5\",\"value\":{\"configMap\":{\"name\":\"kafka-broker-dispatcher-cfcfdd56-8cwsf\"},\"name\":\"kafka-broker-brokers-triggers\"}}],\"patchType\":\"JSONPatch\"}"
+  }
+}
+
+# {"level":"info","ts":"2021-08-08T17:06:14.858Z","logger":"kafka-webhook-eventing","caller":"webhook/admission.go:89","msg":"Webhook ServeHTTP request=&http.Request{Method:\"POST\", URL:(*url.URL)(0xc00016f560), Proto:\"HTTP/1.1\", ProtoMajor:1, ProtoMinor:1, Header:http.Header{\"Accept\":[]string{\"application/json, */*\"}, \"Accept-Encoding\":[]string{\"gzip\"}, \"Content-Length\":[]string{\"23645\"}, \"Content-Type\":[]string{\"application/json\"}, \"User-Agent\":[]string{\"kube-apiserver-admission\"}}, Body:(*http.body)(0xc000ada100), GetBody:(func() (io.ReadCloser, error))(nil), ContentLength:23645, TransferEncoding:[]string(nil), Close:false, Host:\"kafka-webhook-eventing.knative-eventing.svc:443\", Form:url.Values(nil), PostForm:url.Values(nil), MultipartForm:(*multipart.Form)(nil), Trailer:http.Header(nil), RemoteAddr:\"10.244.0.1:1996\", RequestURI:\"/defaulting-config-map?timeout=2s\", TLS:(*tls.ConnectionState)(0xc000c074a0), Cancel:(<-chan struct {})(nil), Response:(*http.Response)(nil), ctx:(*context.cancelCtx)(0xc000ada140)}","knative.dev/pod":"kafka-webhook-eventing-84fb4b748f-2d4v2"}
+# {"level":"info","ts":"2021-08-08T17:06:14.862Z","logger":"kafka-webhook-eventing","caller":"v1/pod_types.go:31","msg":"SetDefaults Pod","knative.dev/pod":"kafka-webhook-eventing-84fb4b748f-2d4v2","knative.dev/kind":"/v1, Kind=Pod","knative.dev/namespace":"knative-eventing","knative.dev/name":"kafka-broker-dispatcher-cfcfdd56-8cwsf","knative.dev/operation":"UPDATE","knative.dev/resource":"/v1, Resource=pods","knative.dev/subresource":"status","knative.dev/userinfo":"{system:node:kind-control-plane  [system:nodes system:authenticated] map[]}"}
+# {"level":"info","ts":"2021-08-08T17:06:14.862Z","logger":"kafka-webhook-eventing","caller":"v1/pod_types.go:31","msg":"SetDefaults Pod","knative.dev/pod":"kafka-webhook-eventing-84fb4b748f-2d4v2","knative.dev/kind":"/v1, Kind=Pod","knative.dev/namespace":"knative-eventing","knative.dev/name":"kafka-broker-dispatcher-cfcfdd56-8cwsf","knative.dev/operation":"UPDATE","knative.dev/resource":"/v1, Resource=pods","knative.dev/subresource":"status","knative.dev/userinfo":"{system:node:kind-control-plane  [system:nodes system:authenticated] map[]}"}
+# {"level":"info","ts":"2021-08-08T17:06:14.864Z","logger":"kafka-webhook-eventing","caller":"defaulting/defaulting.go:125","msg":"Kind: \"/v1, Kind=Pod\" PatchBytes: [{\"op\":\"add\",\"path\":\"/spec/volumes/5\",\"value\":{\"configMap\":{\"name\":\"kafka-broker-dispatcher-cfcfdd56-8cwsf\"},\"name\":\"kafka-broker-brokers-triggers\"}},{\"op\":\"add\",\"path\":\"/spec/containers/0/volumeMounts/5\",\"value\":{\"mountPath\":\"/etc/brokers-triggers\",\"name\":\"kafka-broker-brokers-triggers\",\"readOnly\":true}}]","knative.dev/pod":"kafka-webhook-eventing-84fb4b748f-2d4v2","knative.dev/kind":"/v1, Kind=Pod","knative.dev/namespace":"knative-eventing","knative.dev/name":"kafka-broker-dispatcher-cfcfdd56-8cwsf","knative.dev/operation":"UPDATE","knative.dev/resource":"/v1, Resource=pods","knative.dev/subresource":"status","knative.dev/userinfo":"{system:node:kind-control-plane  [system:nodes system:authenticated] map[]}"}
+# {"level":"info","ts":"2021-08-08T17:06:14.865Z","logger":"kafka-webhook-eventing","caller":"webhook/admission.go:131","msg":"remote admission controller audit annotations=map[string]string(nil)","knative.dev/pod":"kafka-webhook-eventing-84fb4b748f-2d4v2","knative.dev/kind":"/v1, Kind=Pod","knative.dev/namespace":"knative-eventing","knative.dev/name":"kafka-broker-dispatcher-cfcfdd56-8cwsf","knative.dev/operation":"UPDATE","knative.dev/resource":"/v1, Resource=pods","knative.dev/subresource":"status","knative.dev/userinfo":"{system:node:kind-control-plane  [system:nodes system:authenticated] map[]}","admissionreview/uid":"db0a21d3-ef3b-4428-993a-264cbbb7abc8","admissionreview/allowed":true,"admissionreview/result":"nil"}
