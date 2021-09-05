@@ -143,12 +143,12 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
-				// admissionregistrationv1.Update,
+				admissionregistrationv1.Update,
 			},
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvk.Group},
 				APIVersions: []string{gvk.Version},
-				Resources:   []string{plural, plural + "/status", plural + "/spec"},
+				Resources:   []string{plural, plural + "/status"},
 			},
 		})
 	}
@@ -266,8 +266,6 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1.AdmissionRequ
 		}
 		patches = append(patches, rtp...)
 	}
-
-	logger.Infof("NewBytes %s", string(newBytes))
 
 	// Set up the context for defaulting and validation
 	if oldObj != nil {
