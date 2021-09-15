@@ -56,7 +56,7 @@ public class OrderedAsyncExecutor {
     this.isStopped = true;
   }
 
-  void consume() {
+  private void consume() {
     if (this.isStopped) {
       return;
     }

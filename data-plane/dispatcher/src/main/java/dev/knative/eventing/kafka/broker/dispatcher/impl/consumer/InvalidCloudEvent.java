@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package dev.knative.eventing.kafka.broker.dispatcher.impl.consumer;
 
 import io.cloudevents.CloudEvent;
@@ -23,22 +24,7 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.Set;
 
-/**
- * This class wraps the value of a Kafka Message that doesn't follow the Kafka protocol binding for CloudEvents.
- * <p>
- * See {@link InvalidCloudEventInterceptor} and {@link CloudEventDeserializer} for more details.
- */
-class InvalidCloudEvent implements CloudEvent {
-
-  private final byte[] data;
-
-  InvalidCloudEvent(byte[] data) {
-    this.data = data;
-  }
-
-  public byte[] data() {
-    return this.data;
-  }
+record InvalidCloudEvent(byte[] data) implements CloudEvent {
 
   @Override
   public CloudEventData getData() {

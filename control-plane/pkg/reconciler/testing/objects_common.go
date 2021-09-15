@@ -21,6 +21,10 @@ import (
 	"io/ioutil"
 	"time"
 
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/configmap"
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/contract"
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/security"
+
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -94,7 +98,7 @@ func NewConfigMapWithBinaryData(env *config.Env, data []byte) runtime.Object {
 			if data == nil {
 				data = []byte("")
 			}
-			configMap.BinaryData[base.ConfigMapDataKey] = data
+			configMap.BinaryData[configmap.DataKey] = data
 		},
 	)
 }

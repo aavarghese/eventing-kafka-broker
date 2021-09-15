@@ -178,8 +178,26 @@ func StatusBrokerTopicReady(broker *eventing.Broker) {
 	StatusTopicReadyWithName(kafka.BrokerTopic(TopicPrefix, broker))(broker)
 }
 
-func StatusBrokerDataPlaneAvailable(broker *eventing.Broker) {
-	StatusDataPlaneAvailable(broker)
+func WithBootstrapServersAnnotation(bootstrapServers string) func(*eventing.Broker) {
+	return func(b *eventing.Broker) {
+		if b.Status.Annotations == nil {
+			b.Status.Annotations = make(map[string]string, 1)
+		}
+		b.Status.Annotations[BootstrapServersConfigMapKey] = bootstrapServers
+	}
+}
+
+func WithSecretRefAnnotation(secretName string) func(*eventing.Broker) {
+	return func(b *eventing.Broker) {
+		if b.Status.Annotations == nil {
+			b.Status.Annotations = make(map[string]string, 1)
+		}
+		b.Status.Annotations[security.AuthSecretNameKey] = secretName
+	}
+}
+
+func BrokerDataPlaneAvailable(broker *eventing.Broker) {
+	broker.GetConditionSet().Manage(broker.GetStatus()).MarkTrue(base.ConditionDataPlaneAvailable)
 }
 
 func StatusBrokerDataPlaneNotAvailable(broker *eventing.Broker) {

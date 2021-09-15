@@ -37,7 +37,7 @@ group "Kubernetes Codegen"
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   knative.dev/eventing-kafka-broker/control-plane/pkg/client knative.dev/eventing-kafka-broker/control-plane/pkg/apis \
-  "eventing:v1alpha1 \
+  "eventing:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 group "Knative Codegen"
@@ -45,8 +45,21 @@ group "Knative Codegen"
 # Knative Injection
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/eventing-kafka-broker/control-plane/pkg/client knative.dev/eventing-kafka-broker/control-plane/pkg/apis \
-  "eventing:v1alpha1 \
+  "eventing:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+K8S_TYPES=$(find ./vendor/k8s.io/api -type d -path '*/*/*/*/*/*' | cut -d'/' -f 5-6 | sort | sed 's@/@:@g' |
+  grep -v "admission:" | grep -v "imagepolicy:" | grep -v "abac:" | grep -v "componentconfig:")
+
+OUTPUT_PKG="knative.dev/eventing-kafka-broker/control-plane/pkg/client/injection/kube" \
+  VERSIONED_CLIENTSET_PKG="k8s.io/client-go/kubernetes" \
+  EXTERNAL_INFORMER_PKG="k8s.io/client-go/informers" \
+  ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
+  k8s.io/client-go \
+  k8s.io/api \
+  "${K8S_TYPES}" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+  --force-genreconciler-kinds "Pod"
 
 group "Update deps post-codegen"
 

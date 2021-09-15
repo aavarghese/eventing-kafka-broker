@@ -17,6 +17,7 @@
 package dev.knative.eventing.kafka.broker.dispatcher.impl.consumer;
 
 import io.cloudevents.CloudEvent;
+<<<<<<< HEAD
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
@@ -74,19 +75,44 @@ public class CloudEventDeserializer implements Deserializer<CloudEvent> {
     }
     logger.debug("Found invalid CloudEvent for topic {}", topic);
     return new InvalidCloudEvent(data);
+=======
+import io.cloudevents.core.message.impl.GenericStructuredMessageReader;
+import io.cloudevents.core.message.impl.MessageUtils;
+import io.cloudevents.kafka.impl.KafkaBinaryMessageReaderImpl;
+import io.cloudevents.kafka.impl.KafkaHeaders;
+import org.apache.kafka.common.header.Headers;
+import org.apache.kafka.common.serialization.Deserializer;
+
+public class CloudEventDeserializer implements Deserializer<CloudEvent> {
+
+  @Override
+  public CloudEvent deserialize(final String topic, final byte[] data) {
+    throw new UnsupportedOperationException("CloudEventDeserializer supports only the signature deserialize(String, Headers, byte[])");
+>>>>>>> 3450a679 (New updates)
   }
 
   /**
    * Deserialize a record value from a byte array into a CloudEvent.
    *
+<<<<<<< HEAD
    * @param topic   topic associated with the data
    * @param headers headers associated with the record; may be empty.
    * @param data    serialized bytes; may be null;
    *                implementations are recommended to handle null by returning a value or null rather than throwing an exception.
+=======
+   * This is an adapted form of io.cloudevents.kafka.CloudEventDeserializer to handle invalid CloudEvents in a different
+   * way.
+   * In particular
+   *
+   * @param topic   topic associated with the data
+   * @param headers headers associated with the record; may be empty.
+   * @param data    serialized bytes; may be null; implementations are recommended to handle null by returning a value or null rather than throwing an exception.
+>>>>>>> 3450a679 (New updates)
    * @return deserialized typed data; may be null
    */
   @Override
   public CloudEvent deserialize(final String topic, final Headers headers, byte[] data) {
+<<<<<<< HEAD
     if (!isInvalidLogicEnabled) {
       return internalDeserializer.deserialize(topic, headers, data);
     }
@@ -102,4 +128,29 @@ public class CloudEventDeserializer implements Deserializer<CloudEvent> {
   public void close() {
     internalDeserializer.close();
   }
+=======
+
+    String ctHeader = null;
+    final var specVersionHeader = KafkaHeaders.getParsedKafkaHeader(headers, KafkaHeaders.SPEC_VERSION);
+    if (specVersionHeader == null) {
+      ctHeader = KafkaHeaders.getParsedKafkaHeader(headers, KafkaHeaders.CONTENT_TYPE);
+    }
+    if (ctHeader == null && specVersionHeader == null) {
+      // Record is not in binary nor structured format.
+      return new InvalidCloudEvent(data);
+    }
+
+    final var contentTypeHeader = ctHeader; // Make content type header final.
+
+    final var reader = MessageUtils.parseStructuredOrBinaryMessage(
+      () -> contentTypeHeader,
+      format -> new GenericStructuredMessageReader(format, data),
+      () -> specVersionHeader,
+      sv -> new KafkaBinaryMessageReaderImpl(sv, headers, data)
+    );
+
+    return reader.toEvent();
+  }
+
+>>>>>>> 3450a679 (New updates)
 }
