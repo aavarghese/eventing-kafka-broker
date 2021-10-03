@@ -19,19 +19,24 @@ package pod
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	kafkaduck "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
 
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/configmap"
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/podplacement"
 )
 
 // ScheduledResource is a resource that has been scheduled in multiple pods.
 type ScheduledResource interface {
+	// KRShaped is implemeted by any Knative resource.
+	duckv1.KRShaped
 	// GetPlacements returns the current list of placements.
 	// Do not mutate!
 	GetPlacements() []kafkaduck.Placement
@@ -50,8 +55,7 @@ type Reconciler struct {
 	ScheduledResourceLister ScheduledResourceLister
 	ToContract              ToContract
 
-	ConfigMapLister corelisters.ConfigMapNamespaceLister
-	Kube            kubernetes.Interface
+	Kube kubecorev1.CoreV1Interface
 }
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, pod *corev1.Pod) reconciler.Event {
@@ -59,12 +63,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pod *corev1.Pod) reconci
 	if err != nil {
 		return fmt.Errorf("failed to get scheduled resources: %w", err)
 	}
-	contract, err := r.ToContract(schedulables)
-	if err != nil {
-		return fmt.Errorf("failed to transform scheduled resources to contract: %w", err)
-	}
-	if err := r.saveContract(ctx, contract, pod); err != nil {
-		return fmt.Errorf("failed to save contract: %w", err)
+	if err := r.schedule(ctx, pod, schedulables); err != nil {
+		return fmt.Errorf("failed to schedule scheduled resources: %w", err)
 	}
 	return nil
 }
@@ -77,7 +77,11 @@ func (r *Reconciler) getScheduledResourcesIn(pod *corev1.Pod) ([]ScheduledResour
 	return filterSchedulablesOf(schedulables, pod), nil
 }
 
-func (r *Reconciler) saveContract(ctx context.Context, contract proto.Message, pod *corev1.Pod) error {
+func (r *Reconciler) schedule(ctx context.Context, pod *corev1.Pod, schedulables []ScheduledResource) error {
+	contract, err := r.ToContract(schedulables)
+	if err != nil {
+		return fmt.Errorf("failed to transform scheduled resources to contract: %w", err)
+	}
 	cmName, err := configMapNameOf(pod)
 	if err != nil {
 		return err
@@ -89,7 +93,43 @@ func (r *Reconciler) saveContract(ctx context.Context, contract proto.Message, p
 	if err := configmap.Update(ctx, r.Kube, cm, contract); err != nil {
 		return fmt.Errorf("failed to update ConfigMap %s/%s: %w", cm.GetNamespace(), cm.GetName(), err)
 	}
+	return r.updatePodAnnotations(ctx, pod, schedulables)
+}
+
+func (r *Reconciler) updatePodAnnotations(ctx context.Context, pod *corev1.Pod, schedulables []ScheduledResource) error {
+	annotations := make(map[string]string, len(pod.GetAnnotations())+len(schedulables))
+	preserveNonSchedulerAnnotations(pod, annotations)
+	addSchedulablesAnnotations(schedulables, annotations)
+	return r.saveAnnotations(ctx, pod, annotations)
+}
+
+func (r *Reconciler) saveAnnotations(ctx context.Context, pod *corev1.Pod, annotations map[string]string) error {
+	newPod := &corev1.Pod{}
+	pod.DeepCopyInto(newPod) // Do not update informer copy
+	newPod.Annotations = annotations
+	if _, err := r.Kube.Pods(newPod.GetNamespace()).Update(ctx, newPod, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update pod %s/%s: %w", pod.GetNamespace(), pod.GetName(), err)
+	}
 	return nil
+}
+
+func addSchedulablesAnnotations(schedulables []ScheduledResource, annotations map[string]string) {
+	for _, sc := range schedulables {
+		if sc.GetStatus() == nil {
+			continue
+		}
+		key := podplacement.AnnotationKey(sc)
+		value := sc.GetStatus().ObservedGeneration
+		annotations[key] = fmt.Sprintf("%d", value)
+	}
+}
+
+func preserveNonSchedulerAnnotations(pod *corev1.Pod, annotations map[string]string) {
+	for k, v := range pod.GetAnnotations() {
+		if !strings.HasPrefix(k, podplacement.Prefix) {
+			annotations[k] = v
+		}
+	}
 }
 
 func filterSchedulablesOf(schedulables []ScheduledResource, pod *corev1.Pod) []ScheduledResource {
@@ -98,7 +138,6 @@ func filterSchedulablesOf(schedulables []ScheduledResource, pod *corev1.Pod) []S
 		for _, placement := range schedulable.GetPlacements() {
 			if placement.PodName == pod.Name {
 				currentPodSchedulables = append(currentPodSchedulables, schedulable)
-				break // There cannot be placements with the same pod name. TODO check invariance
 			}
 		}
 	}

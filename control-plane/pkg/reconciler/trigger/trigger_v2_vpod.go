@@ -22,17 +22,16 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
-	kafkaduck "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	eventing "knative.dev/eventing/pkg/apis/eventing/v1"
 
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
+	kafkaduck "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
 )
 
 const (
-	prefix           = "scheduler."
+	prefix           = "knative.kafka.scheduler."
 	placementsPrefix = prefix + "placements."
 	podNameField     = "PodName"
-	zoneNameField    = "ZoneName"
 	vReplicasField   = "VReplicas"
 	numVPodFields    = 3
 )
@@ -88,14 +87,12 @@ func (v *vPod) setSchedulerAnnotations(placements []kafkaduck.Placement) {
 			v.trigger.Status.Annotations = make(map[string]string, len(placements))
 		}
 		v.trigger.Status.Annotations[fmt.Sprintf("%s%d.%s", placementsPrefix, i, podNameField)] = p.PodName
-		v.trigger.Status.Annotations[fmt.Sprintf("%s%d.%s", placementsPrefix, i, zoneNameField)] = p.ZoneName
 		v.trigger.Status.Annotations[fmt.Sprintf("%s%d.%s", placementsPrefix, i, vReplicasField)] = strconv.Itoa(int(p.VReplicas))
 	}
 }
 
 func getPlacements(annotations map[string]string) []kafkaduck.Placement {
 	// scheduler.placements.0.PodName
-	// scheduler.placements.0.ZoneName
 	// scheduler.placements.0.VReplicas
 
 	count := 0
@@ -113,16 +110,14 @@ func getPlacements(annotations map[string]string) []kafkaduck.Placement {
 			parts := strings.Split(k, ".")
 			idx, err := strconv.Atoi(parts[2])
 			if err != nil {
-				panic(err) // TODO don't panic
+				panic(err) // Bug in SetPlacements
 			}
 			field := parts[3]
 			switch field {
 			case podNameField:
 				placements[idx].PodName = v
-			case zoneNameField:
-				placements[idx].ZoneName = v
 			case vReplicasField:
-				r, err := strconv.Atoi(v)
+				r, err := strconv.ParseInt(v, 10, 32)
 				if err != nil {
 					panic(err) // TODO don't panic
 				}

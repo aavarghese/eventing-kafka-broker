@@ -17,6 +17,7 @@
 package configmap
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -25,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
@@ -33,8 +34,8 @@ const (
 	DataKey = "data"
 )
 
-func GetOrCreate(ctx context.Context, kube kubernetes.Interface, namespace, name string) (*corev1.ConfigMap, error) {
-	cm, err := kube.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+func GetOrCreate(ctx context.Context, kube kubecorev1.CoreV1Interface, namespace, name string) (*corev1.ConfigMap, error) {
+	cm, err := kube.ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return create(ctx, kube, namespace, name)
@@ -44,21 +45,26 @@ func GetOrCreate(ctx context.Context, kube kubernetes.Interface, namespace, name
 	return cm, nil
 }
 
-func Update(ctx context.Context, kube kubernetes.Interface, cm *corev1.ConfigMap, contract proto.Message) error {
-	bytes, err := protojson.Marshal(contract)
+func Update(ctx context.Context, kube kubecorev1.CoreV1Interface, cm *corev1.ConfigMap, contract proto.Message) error {
+	b, err := protojson.Marshal(contract)
 	if err != nil {
 		return fmt.Errorf("failed to marshal contract: %w", err)
 	}
-	cm.BinaryData[DataKey] = bytes
-	_, err = kube.CoreV1().ConfigMaps(cm.GetNamespace()).Update(ctx, cm, metav1.UpdateOptions{})
+	// Detect whether there are changes to the contract.
+	if _, ok := cm.BinaryData[DataKey]; ok && bytes.Equal(b, cm.BinaryData[DataKey]) {
+		// No changes to the contract, nothing to update.
+		return nil
+	}
+	cm.BinaryData[DataKey] = b
+	_, err = kube.ConfigMaps(cm.GetNamespace()).Update(ctx, cm, metav1.UpdateOptions{})
 	return err
 }
 
-func create(ctx context.Context, kube kubernetes.Interface, namespace string, name string) (*corev1.ConfigMap, error) {
+func create(ctx context.Context, kube kubecorev1.CoreV1Interface, namespace string, name string) (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{
 		TypeMeta:   metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 		BinaryData: map[string][]byte{DataKey: []byte("")},
 	}
-	return kube.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
+	return kube.ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
 }

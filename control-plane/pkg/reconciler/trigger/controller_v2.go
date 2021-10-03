@@ -18,14 +18,17 @@ package trigger
 
 import (
 	"context"
+	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 
 	eventingclient "knative.dev/eventing/pkg/client/injection/client"
@@ -34,7 +37,9 @@ import (
 	triggerreconciler "knative.dev/eventing/pkg/client/injection/reconciler/eventing/v1/trigger"
 
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/config"
-	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/base"
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/dispatcher"
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/dispatcher/brokerdispatcher"
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/podplacement"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/kafka"
 )
 
@@ -47,8 +52,14 @@ func NewControllerV2(ctx context.Context, _ configmap.Watcher, configs *config.E
 	triggerLister := triggerInformer.Lister()
 
 	r := &ReconcilerV2{
+		Scheduler:      nil,
 		BrokerLister:   brokerInformer.Lister(),
 		EventingClient: eventingclient.Get(ctx),
+		PodNamespaceService: podplacement.NewPodNamespaceGetter(
+			ctx,
+			configs.SystemNamespace,
+			labels.SelectorFromSet(brokerdispatcher.NewLabelSelectorSet()),
+		),
 	}
 
 	impl := triggerreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
@@ -76,22 +87,40 @@ func NewControllerV2(ctx context.Context, _ configmap.Watcher, configs *config.E
 		impl.GlobalResync(triggerInformer.Informer())
 	}
 
-	podFilterFunc := reconciler.ChainFilterFuncs(
-		reconciler.NamespaceFilterFunc(configs.SystemNamespace),
-		reconciler.LabelFilterFunc("app", base.BrokerDispatcherLabel, false),
-	)
-
-	podinformer := coreinformers.NewPodInformer(
+	// Enqueue triggers that were reconciled by the Pod Reconciler.
+	podinformer := coreinformers.NewFilteredPodInformer(
 		kubeclient.Get(ctx),
 		configs.SystemNamespace,
 		controller.DefaultResyncPeriod,
-		nil,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+		dispatcher.InformerSelectorTweakList(labels.SelectorFromSet(brokerdispatcher.NewLabelSelectorSet())),
 	)
-
-	podinformer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: podFilterFunc,
-		Handler:    controller.HandleAll(globalResync),
+	podinformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    globalResync,
+		UpdateFunc: podUpdateFunc(impl.EnqueueKey),
+		DeleteFunc: globalResync,
 	})
 
 	return impl
+}
+
+func podUpdateFunc(enqueue func(key types.NamespacedName)) func(oldObj interface{}, newObj interface{}) {
+	return func(oldObj interface{}, newObj interface{}) {
+		onUpdatePod(oldObj.(*corev1.Pod), enqueue)
+		onUpdatePod(newObj.(*corev1.Pod), enqueue)
+	}
+}
+
+func onUpdatePod(pod *corev1.Pod, enqueue func(key types.NamespacedName)) {
+	for k := range pod.GetAnnotations() {
+		if !strings.HasPrefix(k, podplacement.Prefix) {
+			continue
+		}
+		key := strings.Split(strings.TrimPrefix(k, podplacement.Prefix), string([]rune{types.Separator}))
+		namespacedName := types.NamespacedName{
+			Namespace: key[0],
+			Name:      key[1],
+		}
+		enqueue(namespacedName)
+	}
 }
