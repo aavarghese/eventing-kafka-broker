@@ -46,6 +46,13 @@ import (
 const (
 	// TopicPrefix is the Kafka Broker topic prefix - (topic name: knative-broker-<broker-namespace>-<broker-name>).
 	TopicPrefix = "knative-broker-"
+	// AnnotationKeyPrefix is the prefix for every status annotation
+	AnnotationKeyPrefix = "kafka.eventing.knative.dev"
+	// TopicNameStatusAnnotationKey is the key for annotation that contains the broker topic name.
+	TopicNameStatusAnnotationKey = AnnotationKeyPrefix + "/topic.name"
+	// BootstrapServersStatusAnnotationKey is the key for annotation that contains the comma-separated
+	// bootstrap servers list.
+	BootstrapServersStatusAnnotationKey = AnnotationKeyPrefix + "/bootstrap.servers"
 )
 
 type Reconciler struct {
@@ -103,7 +110,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, broker *eventing.Broker)
 	if broker.Status.Annotations == nil {
 		broker.Status.Annotations = make(map[string]string, 2)
 	}
-	broker.Status.Annotations[BootstrapServersConfigMapKey] = topicConfig.GetBootstrapServers()
+	broker.Status.Annotations[BootstrapServersStatusAnnotationKey] = topicConfig.GetBootstrapServers()
 
 	secret, err := security.Secret(ctx, &security.MTConfigMapSecretLocator{ConfigMap: brokerConfig}, r.SecretProviderFunc())
 	if err != nil {
@@ -129,6 +136,8 @@ func (r *Reconciler) reconcileKind(ctx context.Context, broker *eventing.Broker)
 		return statusConditionManager.FailedToCreateTopic(topic, err)
 	}
 	statusConditionManager.TopicReady(topic)
+
+	broker.Status.Annotations[TopicNameStatusAnnotationKey] = topic
 
 	logger.Debug("Topic created", zap.Any("topic", topic))
 

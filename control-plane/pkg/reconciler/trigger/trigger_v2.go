@@ -34,10 +34,15 @@ import (
 	"knative.dev/pkg/resolver"
 
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/podplacement"
+	brokerreconciler "knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/broker"
 )
 
 const (
+	// SchedulingProgressReason is the reason used to signal that scheduling is in progress, which means that the
+	// Pod reconciler hasn't yet reconciled the previous generation for the trigger.
 	SchedulingProgressReason = "SchedulingProgress"
+	// ReplicasAnnotationKey is the annotation to signal the trigger parallelism (number of Kafka consumers)
+	ReplicasAnnotationKey = brokerreconciler.AnnotationKeyPrefix + "/replicas"
 )
 
 type ReconcilerV2 struct {
@@ -85,7 +90,7 @@ func (r *ReconcilerV2) ReconcileKind(ctx context.Context, trigger *eventing.Trig
 		return nil // Trigger will be re-queued once this broker is ready.
 	}
 
-	vPod := &vPod{trigger: trigger, vReplicas: 1}
+	vPod := &vPod{Trigger: trigger}
 
 	// We want to make sure that the pod reconciler had reconciled our trigger changes before we make
 	// a new scheduling decision.
@@ -94,20 +99,14 @@ func (r *ReconcilerV2) ReconcileKind(ctx context.Context, trigger *eventing.Trig
 		err = fmt.Errorf("failed to determine scheduler progress: %w", err)
 		msg := err.Error()
 		trigger.Status.MarkDependencyFailed(SchedulingProgressReason, msg)
-		trigger.Status.MarkNotSubscribed(SchedulingProgressReason, msg)
-		trigger.Status.MarkSubscriberResolvedFailed(SchedulingProgressReason, msg)
-		trigger.Status.MarkDeadLetterSinkResolvedFailed(SchedulingProgressReason, msg)
 		return err
 	}
 	if !prevScheduleDone {
-		msg := "Previous scheduling decision not completed"
+		msg := "Unscheduled"
 		trigger.Status.MarkDependencyUnknown(SchedulingProgressReason, msg)
-		trigger.Status.MarkSubscribedUnknown(SchedulingProgressReason, msg)
-		trigger.Status.MarkSubscriberResolvedUnknown(SchedulingProgressReason, msg)
-		// TODO add MarkDeadLetterSinkResolvedUnknown()
-		// Trigger will be re-queued later.
-		return nil
+		return nil // Trigger will be re-queued later.
 	}
+	trigger.Status.MarkDependencySucceeded()
 
 	// TODO set consumer group offsets and set condition accordingly, so that we don't need to care about being
 	//  ready too early (use eventing-kafka util)
@@ -122,7 +121,6 @@ func (r *ReconcilerV2) ReconcileKind(ctx context.Context, trigger *eventing.Trig
 	if err := r.reconcileDeadLetterSink(ctx, trigger); err != nil {
 		return err
 	}
-	trigger.Status.MarkDependencySucceeded()
 
 	return nil
 }
@@ -167,10 +165,10 @@ func (r *ReconcilerV2) reconcileDeadLetterSink(ctx context.Context, trigger *eve
 }
 
 func (r *ReconcilerV2) FinalizeKind(ctx context.Context, trigger *eventing.Trigger) reconciler.Event {
-	vPod := &vPod{trigger: trigger, vReplicas: 0}
+	vPod := &vPod{Trigger: trigger, vReplicas: 0}
 	vPod.SetPlacements(nil)
 
-	if err := r.PodNamespaceService.RemoveAnnotationsFor(ctx, vPod.trigger); err != nil {
+	if err := r.PodNamespaceService.RemoveAnnotationsFor(ctx, vPod.Trigger); err != nil {
 		return fmt.Errorf("failed to clean up annotations: %w", err)
 	}
 	return nil
@@ -178,12 +176,12 @@ func (r *ReconcilerV2) FinalizeKind(ctx context.Context, trigger *eventing.Trigg
 
 func (r *ReconcilerV2) isPrevPodsScheduleDone(ctx context.Context, vPod *vPod) (bool, error) {
 	for _, p := range vPod.GetPlacements() {
-		pGenForVPod, err := r.PodNamespaceService.GetGenerationFor(ctx, p.PodName, vPod.trigger)
+		pGenForVPod, err := r.PodNamespaceService.GetGenerationFor(ctx, p.PodName, vPod.Trigger)
 		if err != nil {
 			return false, err
 		}
 		// Verify that the pod generation for this vPod is greater than the previous one.
-		if pGenForVPod == -1 || vPod.trigger.Status.ObservedGeneration <= pGenForVPod {
+		if pGenForVPod == -1 || vPod.Trigger.Status.ObservedGeneration <= pGenForVPod {
 			return false, nil
 		}
 	}

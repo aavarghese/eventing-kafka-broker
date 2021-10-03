@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
+	"knative.dev/pkg/system"
 
 	eventingclient "knative.dev/eventing/pkg/client/injection/client"
 	brokerinformer "knative.dev/eventing/pkg/client/injection/informers/eventing/v1/broker"
@@ -88,20 +89,24 @@ func NewControllerV2(ctx context.Context, _ configmap.Watcher, configs *config.E
 	}
 
 	// Enqueue triggers that were reconciled by the Pod Reconciler.
-	podinformer := coreinformers.NewFilteredPodInformer(
-		kubeclient.Get(ctx),
-		configs.SystemNamespace,
-		controller.DefaultResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-		dispatcher.InformerSelectorTweakList(labels.SelectorFromSet(brokerdispatcher.NewLabelSelectorSet())),
-	)
-	podinformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	podInformer := newPodInformer(ctx)
+	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    globalResync,
 		UpdateFunc: podUpdateFunc(impl.EnqueueKey),
 		DeleteFunc: globalResync,
 	})
 
 	return impl
+}
+
+func newPodInformer(ctx context.Context) cache.SharedIndexInformer {
+	return coreinformers.NewFilteredPodInformer(
+		kubeclient.Get(ctx),
+		system.Namespace(),
+		controller.DefaultResyncPeriod,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+		dispatcher.InformerSelectorTweakList(labels.SelectorFromSet(brokerdispatcher.NewLabelSelectorSet())),
+	)
 }
 
 func podUpdateFunc(enqueue func(key types.NamespacedName)) func(oldObj interface{}, newObj interface{}) {

@@ -26,6 +26,8 @@ import (
 	eventing "knative.dev/eventing/pkg/apis/eventing/v1"
 
 	kafkaduck "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/broker"
 )
 
 const (
@@ -41,18 +43,41 @@ var (
 )
 
 type vPod struct {
-	trigger   *eventing.Trigger
+	*eventing.Trigger
+	broker    *eventing.Broker
 	vReplicas int32
 
 	// placements is set by the GetPlacements() method.
 	placements []kafkaduck.Placement
 }
 
+func newVPod(t *eventing.Trigger, b *eventing.Broker) *vPod {
+	vp := &vPod{
+		Trigger:   t,
+		broker:    b,
+		vReplicas: countVReplicas(t),
+		// placements is set by the GetPlacements() method.
+	}
+	return vp
+}
+
 func (v *vPod) GetKey() types.NamespacedName {
 	return types.NamespacedName{
-		Namespace: v.trigger.GetNamespace(),
-		Name:      v.trigger.GetName(),
+		Namespace: v.GetNamespace(),
+		Name:      v.GetName(),
 	}
+}
+
+func countVReplicas(t *eventing.Trigger) int32 {
+	replicasStr, ok := t.Annotations[ReplicasAnnotationKey]
+	if !ok {
+		return 1
+	}
+	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
+	if err != nil {
+		return 1
+	}
+	return int32(replicas)
 }
 
 func (v *vPod) GetVReplicas() int32 {
@@ -61,7 +86,7 @@ func (v *vPod) GetVReplicas() int32 {
 
 func (v *vPod) GetPlacements() []kafkaduck.Placement {
 	if v.placements == nil {
-		v.placements = getPlacements(v.trigger.Status.Annotations)
+		v.placements = getPlacements(v.Status.Annotations)
 	}
 	return v.placements
 }
@@ -72,22 +97,22 @@ func (v *vPod) SetPlacements(placements []kafkaduck.Placement) {
 }
 
 func (v *vPod) removeSchedulerAnnotations() {
-	nonSchedulerAnnotations := make(map[string]string, len(v.trigger.Status.Annotations))
-	for k, v := range v.trigger.Status.Annotations {
+	nonSchedulerAnnotations := make(map[string]string, len(v.Status.Annotations))
+	for k, v := range v.Status.Annotations {
 		if !strings.HasPrefix(k, placementsPrefix) {
 			nonSchedulerAnnotations[k] = v
 		}
 	}
-	v.trigger.Status.Annotations = nonSchedulerAnnotations
+	v.Status.Annotations = nonSchedulerAnnotations
 }
 
 func (v *vPod) setSchedulerAnnotations(placements []kafkaduck.Placement) {
 	for i, p := range placements {
-		if v.trigger.Status.Annotations == nil {
-			v.trigger.Status.Annotations = make(map[string]string, len(placements))
+		if v.Status.Annotations == nil {
+			v.Status.Annotations = make(map[string]string, len(placements))
 		}
-		v.trigger.Status.Annotations[fmt.Sprintf("%s%d.%s", placementsPrefix, i, podNameField)] = p.PodName
-		v.trigger.Status.Annotations[fmt.Sprintf("%s%d.%s", placementsPrefix, i, vReplicasField)] = strconv.Itoa(int(p.VReplicas))
+		v.Status.Annotations[fmt.Sprintf("%s%d.%s", placementsPrefix, i, podNameField)] = p.PodName
+		v.Status.Annotations[fmt.Sprintf("%s%d.%s", placementsPrefix, i, vReplicasField)] = strconv.Itoa(int(p.VReplicas))
 	}
 }
 
@@ -126,4 +151,12 @@ func getPlacements(annotations map[string]string) []kafkaduck.Placement {
 		}
 	}
 	return placements
+}
+
+func (v *vPod) GetTopics() []string {
+	return []string{v.Status.Annotations[broker.TopicNameStatusAnnotationKey]}
+}
+
+func (v *vPod) GetBootstrapServers() string {
+	return v.Status.Annotations[broker.BootstrapServersStatusAnnotationKey]
 }

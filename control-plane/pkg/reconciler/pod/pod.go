@@ -49,7 +49,7 @@ type ScheduledResourceLister interface {
 }
 
 // ToContract transform scheduled resources to our internal contract.
-type ToContract func(schedulables []ScheduledResource) (proto.Message, error)
+type ToContract func(ctx context.Context, schedulables []ScheduledResource) (proto.Message, error)
 
 type Reconciler struct {
 	ScheduledResourceLister ScheduledResourceLister
@@ -78,7 +78,7 @@ func (r *Reconciler) getScheduledResourcesIn(pod *corev1.Pod) ([]ScheduledResour
 }
 
 func (r *Reconciler) schedule(ctx context.Context, pod *corev1.Pod, schedulables []ScheduledResource) error {
-	contract, err := r.ToContract(schedulables)
+	contract, err := r.ToContract(ctx, schedulables)
 	if err != nil {
 		return fmt.Errorf("failed to transform scheduled resources to contract: %w", err)
 	}
@@ -105,8 +105,9 @@ func (r *Reconciler) updatePodAnnotations(ctx context.Context, pod *corev1.Pod, 
 
 func (r *Reconciler) saveAnnotations(ctx context.Context, pod *corev1.Pod, annotations map[string]string) error {
 	newPod := &corev1.Pod{}
-	pod.DeepCopyInto(newPod) // Do not update informer copy
+	pod.DeepCopyInto(newPod) // Do not change informer copy
 	newPod.Annotations = annotations
+	// This signal to the Trigger reconciler that we reconciled the scheduled resources.
 	if _, err := r.Kube.Pods(newPod.GetNamespace()).Update(ctx, newPod, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update pod %s/%s: %w", pod.GetNamespace(), pod.GetName(), err)
 	}
