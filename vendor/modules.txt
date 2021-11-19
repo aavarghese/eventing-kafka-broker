@@ -1171,6 +1171,7 @@ knative.dev/eventing/pkg/reconciler/sugar
 knative.dev/eventing/pkg/reconciler/testing
 knative.dev/eventing/pkg/reconciler/testing/scheme
 knative.dev/eventing/pkg/reconciler/testing/v1
+knative.dev/eventing/pkg/scheduler
 knative.dev/eventing/pkg/utils
 knative.dev/eventing/test/conformance/helpers
 knative.dev/eventing/test/conformance/helpers/tracing
@@ -1262,8 +1263,10 @@ knative.dev/eventing-kafka/pkg/common/config
 knative.dev/eventing-kafka/pkg/common/constants
 knative.dev/eventing-kafka/pkg/common/kafka/offset
 knative.dev/eventing-kafka/pkg/common/kafka/sarama
-knative.dev/eventing-kafka/pkg/common/scheduler
-# knative.dev/hack v0.0.0-20210806075220-815cd312d65c
+knative.dev/eventing-kafka/test/e2e/helpers
+knative.dev/eventing-kafka/test/lib
+knative.dev/eventing-kafka/test/lib/resources
+# knative.dev/hack v0.0.0-20211112192837-128cf0150a69
 ## explicit
 knative.dev/hack
 # knative.dev/pkg v0.0.0-20211117215328-5708c4c44232

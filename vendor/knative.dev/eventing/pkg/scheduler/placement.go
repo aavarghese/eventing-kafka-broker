@@ -18,7 +18,7 @@ package scheduler
 
 import (
 	"k8s.io/apimachinery/pkg/util/sets"
-	duckv1alpha1 "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	duckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 )
 
 // GetTotalVReplicas returns the total number of placed virtual replicas

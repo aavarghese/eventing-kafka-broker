@@ -22,10 +22,10 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/eventing-kafka/pkg/common/scheduler"
 	eventing "knative.dev/eventing/pkg/apis/eventing/v1"
+	"knative.dev/eventing/pkg/scheduler"
 
-	kafkaduck "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	duck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/broker"
 )
@@ -48,7 +48,7 @@ type vPod struct {
 	vReplicas int32
 
 	// placements is set by the GetPlacements() method.
-	placements []kafkaduck.Placement
+	placements []duck.Placement
 }
 
 func newVPod(t *eventing.Trigger, b *eventing.Broker) *vPod {
@@ -84,14 +84,14 @@ func (v *vPod) GetVReplicas() int32 {
 	return v.vReplicas
 }
 
-func (v *vPod) GetPlacements() []kafkaduck.Placement {
+func (v *vPod) GetPlacements() []duck.Placement {
 	if v.placements == nil {
 		v.placements = getPlacements(v.Status.Annotations)
 	}
 	return v.placements
 }
 
-func (v *vPod) SetPlacements(placements []kafkaduck.Placement) {
+func (v *vPod) SetPlacements(placements []duck.Placement) {
 	v.removeSchedulerAnnotations()
 	v.setSchedulerAnnotations(placements)
 }
@@ -106,7 +106,7 @@ func (v *vPod) removeSchedulerAnnotations() {
 	v.Status.Annotations = nonSchedulerAnnotations
 }
 
-func (v *vPod) setSchedulerAnnotations(placements []kafkaduck.Placement) {
+func (v *vPod) setSchedulerAnnotations(placements []duck.Placement) {
 	for i, p := range placements {
 		if v.Status.Annotations == nil {
 			v.Status.Annotations = make(map[string]string, len(placements))
@@ -116,7 +116,7 @@ func (v *vPod) setSchedulerAnnotations(placements []kafkaduck.Placement) {
 	}
 }
 
-func getPlacements(annotations map[string]string) []kafkaduck.Placement {
+func getPlacements(annotations map[string]string) []duck.Placement {
 	// scheduler.placements.0.PodName
 	// scheduler.placements.0.VReplicas
 
@@ -129,7 +129,7 @@ func getPlacements(annotations map[string]string) []kafkaduck.Placement {
 	if count <= 0 {
 		return nil
 	}
-	placements := make([]kafkaduck.Placement, count/numVPodFields)
+	placements := make([]duck.Placement, count/numVPodFields)
 	for k, v := range annotations {
 		if strings.HasPrefix(k, placementsPrefix) {
 			parts := strings.Split(k, ".")

@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	kafkaduck "knative.dev/eventing-kafka/pkg/apis/duck/v1alpha1"
+	duck "knative.dev/eventing/pkg/apis/duck/v1alpha1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
 
@@ -39,7 +39,7 @@ type ScheduledResource interface {
 	duckv1.KRShaped
 	// GetPlacements returns the current list of placements.
 	// Do not mutate!
-	GetPlacements() []kafkaduck.Placement
+	GetPlacements() []duck.Placement
 }
 
 // ScheduledResourceLister list schedulables.
