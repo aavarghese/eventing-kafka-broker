@@ -23,6 +23,7 @@ import (
 	"math"
 	"sort"
 
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/utils/pointer"
 	eventingduckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
 	"knative.dev/eventing/pkg/scheduler"
@@ -55,27 +57,36 @@ type Reconciler struct {
 	NameGenerator names.NameGenerator
 
 	SystemNamespace string
+	Name            string
 }
 
 func (r Reconciler) ReconcileKind(ctx context.Context, cg *kafkainternals.ConsumerGroup) reconciler.Event {
-	if err := r.schedule(cg); err != nil {
+	logger := logging.FromContext(ctx).Desugar()
+
+	if err := r.schedule(logger, cg); err != nil {
+		logger.Info("CONSUMER GROUP SCHEDULER ERROR")
 		return err
 	}
 	cg.MarkScheduleSucceeded()
+	logger.Info("CONSUMER GROUP SCHEDULER SUCCESS")
 
 	if err := r.reconcileConsumers(ctx, cg); err != nil {
+		logger.Info("CONSUMER GROUP CONSUMER ERROR")
 		return err
 	}
 
 	if err := r.propagateStatus(cg); err != nil {
+		logger.Info("CONSUMER GROUP PROPAGATE STATUS FAIL")
 		return cg.MarkReconcileConsumersFailed("PropagateConsumerStatus", err)
 	}
 
 	if cg.Status.SubscriberURI == nil {
+		logger.Info("CONSUMER GROUP SUB UI NIL")
 		_ = cg.MarkReconcileConsumersFailed("PropagateSubscriberURI", ErrNoSubscriberURI)
 		return nil
 	}
 	if cg.HasDeadLetterSink() && cg.Status.DeadLetterSinkURI == nil {
+		logger.Info("CONSUMER GROUP DEAD SINK NIL")
 		_ = cg.MarkReconcileConsumersFailed("PropagateDeadLetterSinkURI", ErrNoDeadLetterSinkURI)
 		return nil
 	}
@@ -196,9 +207,10 @@ func (r Reconciler) finalizeConsumer(ctx context.Context, consumer *kafkainterna
 	return nil
 }
 
-func (r Reconciler) schedule(cg *kafkainternals.ConsumerGroup) error {
+func (r Reconciler) schedule(logger *zap.Logger, cg *kafkainternals.ConsumerGroup) error {
 	placements, err := r.SchedulerFunc(cg.GetUserFacingResourceRef().Kind).Schedule(cg)
 	if err != nil {
+		logger.Info("CONSUMER GROUP SCHEDULE PLACEMENTS ERR")
 		return cg.MarkScheduleConsumerFailed("Schedule", err)
 	}
 	// Sort placements by pod name.

@@ -25,7 +25,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
@@ -43,8 +42,6 @@ import (
 
 type Reconciler struct {
 	SerDe contract.FormatSerDe
-
-	Enqueue func(c *kafkainternals.Consumer)
 
 	Resolver            *resolver.URIResolver
 	Tracker             tracker.Interface
@@ -74,6 +71,7 @@ func (r Reconciler) ReconcileKind(ctx context.Context, c *kafkainternals.Consume
 
 	bound, err := r.schedule(ctx, logger, c, addResource(resourceCt))
 	if err != nil {
+		logger.Info("CONSUMER SCHEDULE BIND FAILED")
 		return c.MarkBindFailed(err)
 	}
 	if !bound {
@@ -82,6 +80,7 @@ func (r Reconciler) ReconcileKind(ctx context.Context, c *kafkainternals.Consume
 		return nil
 	}
 	c.MarkBindSucceeded()
+	logger.Info("CONSUMER SCHEDULE BIND SUCCESS")
 
 	return nil
 }
@@ -143,7 +142,7 @@ func (r Reconciler) reconcileContractEgress(ctx context.Context, c *kafkainterna
 			return nil, err
 		}
 	}
-	c.Status.DeliveryStatus.DeadLetterSinkURI, _ = apis.ParseURL(egressConfig.DeadLetter)
+	//c.Status.DeliveryStatus.DeadLetterSinkURI, _ = apis.ParseURL(egressConfig.DeadLetter)
 
 	egress := &contract.Egress{
 		ConsumerGroup: c.Spec.Configs.Configs["group.id"],
@@ -309,20 +308,20 @@ func (r Reconciler) schedule(ctx context.Context, logger *zap.Logger, c *kafkain
 	// Get the data plane pod when the Consumer should be scheduled.
 	p, err := r.PodLister.Pods(c.Spec.PodBind.PodNamespace).Get(c.Spec.PodBind.PodName)
 	if err != nil {
+		logger.Info("CONSUMER SCHEDULE POD GETTING ERR")
 		return false, fmt.Errorf("failed to get pod %s/%s: %w", c.Spec.PodBind.PodNamespace, c.Spec.PodBind.PodName, err)
 	}
 	if apierrors.IsNotFound(err) {
 		// Pod not found, return no error since the Consumer
 		// will get re-queued when the pod is added.
+		logger.Info("CONSUMER SCHEDULE POD NOT FOUND")
 		return false, nil
-	}
-	if err != nil {
-		return false, err
 	}
 
 	// Get contract associated with the pod.
 	cmName, err := cmNameFromPod(p, c)
 	if err != nil {
+		logger.Info("CONSUMER SCHEDULE CONTRACT ERR")
 		return false, err
 	}
 
