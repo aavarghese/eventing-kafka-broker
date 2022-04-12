@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Knative Authors
+ * Copyright 2022 The Knative Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,85 +28,49 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/config"
-	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/broker"
-	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/channel"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/consumer"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/consumergroup"
-	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/sink"
-	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/source"
-	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/trigger"
+	sourcev2 "knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/source/v2"
 )
 
 const (
+<<<<<<< HEAD
+	component = "kafka-source-controller"
+=======
 	component = "kafka-broker-controller"
+>>>>>>> 9a281a50 (Standalone KafkaSource)
 )
 
 func main() {
 
-	brokerEnv, err := config.GetEnvConfig("BROKER", broker.ValidateDefaultBackoffDelayMs)
-	if err != nil {
-		log.Fatal("cannot process environment variables with prefix BROKER", err)
-	}
-
-	channelEnv, err := config.GetEnvConfig("CHANNEL")
-	if err != nil {
-		log.Fatal("cannot process environment variables with prefix CHANNEL", err)
-	}
-
-	sinkEnv, err := config.GetEnvConfig("SINK")
-	if err != nil {
-		log.Fatal("cannot process environment variables with prefix SINK", err)
-	}
-
+<<<<<<< HEAD
+	consumerEnv, err := config.GetEnvConfig("SOURCE")
+=======
 	sourceEnv, err := config.GetEnvConfig("SOURCE")
+>>>>>>> 9a281a50 (Standalone KafkaSource)
 	if err != nil {
 		log.Fatal("cannot process environment variables with prefix SOURCE", err)
 	}
 
+<<<<<<< HEAD
+=======
 	consumerEnv, err := config.GetEnvConfig("SOURCE")
 	if err != nil {
 		log.Fatal("cannot process environment variables with prefix CONSUMER", err)
 	}
 
+>>>>>>> 9a281a50 (Standalone KafkaSource)
 	sharedmain.MainNamed(signals.NewContext(), component,
-
-		// Broker controller
-		injection.NamedControllerConstructor{
-			Name: "broker-controller",
-			ControllerConstructor: func(ctx context.Context, watcher configmap.Watcher) *controller.Impl {
-				return broker.NewController(ctx, watcher, brokerEnv)
-			},
-		},
-
-		// Trigger controller
-		injection.NamedControllerConstructor{
-			Name: "trigger-controller",
-			ControllerConstructor: func(ctx context.Context, watcher configmap.Watcher) *controller.Impl {
-				return trigger.NewController(ctx, watcher, brokerEnv)
-			},
-		},
-
-		// Channel controller
-		injection.NamedControllerConstructor{
-			Name: "channel-controller",
-			ControllerConstructor: func(ctx context.Context, watcher configmap.Watcher) *controller.Impl {
-				return channel.NewController(ctx, channelEnv)
-			},
-		},
-
-		// KafkaSink controller
-		injection.NamedControllerConstructor{
-			Name: "sink-controller",
-			ControllerConstructor: func(ctx context.Context, watcher configmap.Watcher) *controller.Impl {
-				return sink.NewController(ctx, watcher, sinkEnv)
-			},
-		},
 
 		// KafkaSource controller
 		injection.NamedControllerConstructor{
 			Name: "source-controller",
 			ControllerConstructor: func(ctx context.Context, watcher configmap.Watcher) *controller.Impl {
-				return source.NewController(ctx, watcher, sourceEnv)
+<<<<<<< HEAD
+				return sourcev2.NewController(ctx)
+=======
+				return sourcev2.NewController(ctx, sourceEnv)
+>>>>>>> 9a281a50 (Standalone KafkaSource)
 			},
 		},
 

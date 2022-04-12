@@ -36,6 +36,9 @@ spec:
       containers:
         - name: migrate
           image: ko://knative.dev/pkg/apiextensions/storageversion/cmd/migrate
+          env:
+            - name: MIGRATE_CRD_IF_FOUND_NO_FAILURE
+              value: "true"
           args:
             - "kafkasources.sources.knative.dev"
             - "kafkachannels.messaging.knative.dev"

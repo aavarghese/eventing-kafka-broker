@@ -28,6 +28,8 @@ readonly DATA_PLANE_CONFIG_DIR=${DATA_PLANE_DIR}/config
 
 # Source config
 readonly SOURCE_DATA_PLANE_CONFIG_DIR=${DATA_PLANE_CONFIG_DIR}/source
+# Temporary Source config
+readonly SOURCEV2_DATA_PLANE_CONFIG_DIR=${DATA_PLANE_CONFIG_DIR}/sourcev2
 # Broker config
 readonly BROKER_DATA_PLANE_CONFIG_DIR=${DATA_PLANE_CONFIG_DIR}/broker
 # Sink config
@@ -152,8 +154,8 @@ function data_plane_build_push() {
 function replace_images() {
   local file=$1
 
-  sed -i "s|\${KNATIVE_KAFKA_DISPATCHER_IMAGE}|${KNATIVE_KAFKA_DISPATCHER_IMAGE}|g" "${file}" &&
-    sed -i "s|\${KNATIVE_KAFKA_RECEIVER_IMAGE}|${KNATIVE_KAFKA_RECEIVER_IMAGE}|g" "${file}"
+  /usr/bin/sed -i '' "s|\${KNATIVE_KAFKA_DISPATCHER_IMAGE}|${KNATIVE_KAFKA_DISPATCHER_IMAGE}|g" "${file}" &&
+    /usr/bin/sed -i '' "s|\${KNATIVE_KAFKA_RECEIVER_IMAGE}|${KNATIVE_KAFKA_RECEIVER_IMAGE}|g" "${file}"
 
   return $?
 }
@@ -196,5 +198,22 @@ function data_plane_unit_tests() {
 # Note: do not change this function name, it's used during releases.
 function data_plane_setup() {
   data_plane_build_push && k8s
+  return $?
+}
+
+function data_plane_dispatcher_setup() {
+  dispatcher_build_push || dispatcher_build_push || fail_test "failed to build dispatcher"
+  header "Creating artifacts"
+
+  echo "Dispatcher image ---> ${KNATIVE_KAFKA_DISPATCHER_IMAGE}"
+
+<<<<<<< HEAD
+  ko resolve ${KO_FLAGS} -Rf ${SOURCEV2_DATA_PLANE_CONFIG_DIR} | "${LABEL_YAML_CMD[@]}" >>"${EVENTING_KAFKA_SOURCE_ARTIFACT}"
+=======
+  ko resolve ${KO_FLAGS} -Rf ${SOURCE_DATA_PLANE_CONFIG_DIR} | "${LABEL_YAML_CMD[@]}" >>"${EVENTING_KAFKA_SOURCE_ARTIFACT}"
+>>>>>>> 9a281a50 (Standalone KafkaSource)
+
+  replace_images "${EVENTING_KAFKA_SOURCE_ARTIFACT}"
+
   return $?
 }

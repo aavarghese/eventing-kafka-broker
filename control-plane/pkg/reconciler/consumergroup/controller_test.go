@@ -58,16 +58,16 @@ func TestNewController(t *testing.T) {
 			},
 			Data: map[string]string{
 				"predicates": `
-			     [
-			       {"Name": "PodFitsResources"},
-			       {"Name": "NoMaxResourceCount", "Args": "{\"NumPartitions\": 100}"},
-			       {"Name": "EvenPodSpread", "Args": "{\"MaxSkew\": 2}"}
-			     ]`,
+				  [
+					{"Name": "PodFitsResources"},
+					{"Name": "NoMaxResourceCount", "Args": "{\"NumPartitions\": 100}"},
+					{"Name": "EvenPodSpread", "Args": "{\"MaxSkew\": 2}"}
+				  ]`,
 				"priorities": `
-                [
-                  {"Name": "AvailabilityZonePriority", "Weight": 10, "Args":  "{\"MaxSkew\": 2}"},
-                  {"Name": "LowestOrdinalPriority", "Weight": 2}
-                ]`,
+				 [
+				   {"Name": "AvailabilityZonePriority", "Weight": 10, "Args":  "{\"MaxSkew\": 2}"},
+				   {"Name": "LowestOrdinalPriority", "Weight": 2}
+				 ]`,
 			},
 		},
 		&corev1.ConfigMap{
@@ -78,11 +78,11 @@ func TestNewController(t *testing.T) {
 			Data: map[string]string{
 				"predicates": `[]`,
 				"priorities": `
-                 [
-                    {"Name": "RemoveWithEvenPodSpreadPriority", "Weight": 10, "Args": "{\"MaxSkew\": 2}"},
-                    {"Name": "RemoveWithAvailabilityZonePriority", "Weight": 10, "Args":  "{\"MaxSkew\": 2}"},
-                    {"Name": "RemoveWithHighestOrdinalPriority", "Weight": 2}
-                 ]`,
+				  [
+					 {"Name": "RemoveWithEvenPodSpreadPriority", "Weight": 10, "Args": "{\"MaxSkew\": 2}"},
+					 {"Name": "RemoveWithAvailabilityZonePriority", "Weight": 10, "Args":  "{\"MaxSkew\": 2}"},
+					 {"Name": "RemoveWithHighestOrdinalPriority", "Weight": 2}
+				  ]`,
 			},
 		},
 	)
