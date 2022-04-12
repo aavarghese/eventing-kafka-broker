@@ -232,8 +232,6 @@ function test_source_setup() {
   # Apply test configurations, and restart data plane components (we don't have hot reload)
   ko apply -f ./test/config/ || fail_test "Failed to apply test configurations"
 
-  setup_kafka_channel_auth || fail_test "Failed to apply channel auth configuration ${EVENTING_KAFKA_BROKER_CHANNEL_AUTH_SCENARIO}"
-
   kubectl rollout restart statefulset -n knative-eventing kafka-source-dispatcher
 }
 
