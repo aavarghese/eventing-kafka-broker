@@ -207,11 +207,7 @@ function data_plane_dispatcher_setup() {
 
   echo "Dispatcher image ---> ${KNATIVE_KAFKA_DISPATCHER_IMAGE}"
 
-<<<<<<< HEAD
   ko resolve ${KO_FLAGS} -Rf ${SOURCEV2_DATA_PLANE_CONFIG_DIR} | "${LABEL_YAML_CMD[@]}" >>"${EVENTING_KAFKA_SOURCE_ARTIFACT}"
-=======
-  ko resolve ${KO_FLAGS} -Rf ${SOURCE_DATA_PLANE_CONFIG_DIR} | "${LABEL_YAML_CMD[@]}" >>"${EVENTING_KAFKA_SOURCE_ARTIFACT}"
->>>>>>> 9a281a50 (Standalone KafkaSource)
 
   replace_images "${EVENTING_KAFKA_SOURCE_ARTIFACT}"
 

@@ -34,43 +34,23 @@ import (
 )
 
 const (
-<<<<<<< HEAD
-	component = "kafka-source-controller"
-=======
 	component = "kafka-broker-controller"
->>>>>>> 9a281a50 (Standalone KafkaSource)
 )
 
 func main() {
 
-<<<<<<< HEAD
-	consumerEnv, err := config.GetEnvConfig("SOURCE")
-=======
-	sourceEnv, err := config.GetEnvConfig("SOURCE")
->>>>>>> 9a281a50 (Standalone KafkaSource)
-	if err != nil {
-		log.Fatal("cannot process environment variables with prefix SOURCE", err)
-	}
-
-<<<<<<< HEAD
-=======
 	consumerEnv, err := config.GetEnvConfig("SOURCE")
 	if err != nil {
 		log.Fatal("cannot process environment variables with prefix CONSUMER", err)
 	}
 
->>>>>>> 9a281a50 (Standalone KafkaSource)
 	sharedmain.MainNamed(signals.NewContext(), component,
 
 		// KafkaSource controller
 		injection.NamedControllerConstructor{
 			Name: "source-controller",
 			ControllerConstructor: func(ctx context.Context, watcher configmap.Watcher) *controller.Impl {
-<<<<<<< HEAD
 				return sourcev2.NewController(ctx)
-=======
-				return sourcev2.NewController(ctx, sourceEnv)
->>>>>>> 9a281a50 (Standalone KafkaSource)
 			},
 		},
 

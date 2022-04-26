@@ -21,7 +21,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Shopify/sarama"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
@@ -40,7 +43,21 @@ import (
 
 	fakeconsumergroupinformer "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/client/fake"
 
+	kafkainternals "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/internals/kafka/eventing/v1alpha1"
+	kafkatesting "knative.dev/eventing-kafka-broker/control-plane/pkg/kafka/testing"
 	. "knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/testing"
+)
+
+const (
+	finalizerName = "kafkasources.sources.knative.dev"
+)
+
+var (
+	finalizerUpdatedEvent = Eventf(
+		corev1.EventTypeNormal,
+		"FinalizerUpdate",
+		fmt.Sprintf(`Updated %q finalizers`, SourceName),
+	)
 )
 
 func TestReconcileKind(t *testing.T) {
@@ -92,6 +109,12 @@ func TestReconcileKind(t *testing.T) {
 						StatusSourceSinkResolved(""),
 					),
 				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
 			},
 		},
 		{
@@ -145,6 +168,12 @@ func TestReconcileKind(t *testing.T) {
 						StatusSourceSinkResolved(""),
 					),
 				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
 			},
 		},
 		{
@@ -222,6 +251,12 @@ func TestReconcileKind(t *testing.T) {
 					),
 				},
 			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
 		},
 		{
 			Name: "Reconciled normal - existing cg with update",
@@ -278,6 +313,12 @@ func TestReconcileKind(t *testing.T) {
 					),
 				},
 			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
 		},
 		{
 			Name: "Reconciled normal - existing cg with update but not ready",
@@ -333,6 +374,12 @@ func TestReconcileKind(t *testing.T) {
 					),
 				},
 			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
 		},
 		{
 			Name: "Reconciled normal - existing cg without update",
@@ -375,6 +422,12 @@ func TestReconcileKind(t *testing.T) {
 						StatusSourceSinkResolved(""),
 					),
 				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
 			},
 		},
 		{
@@ -419,6 +472,12 @@ func TestReconcileKind(t *testing.T) {
 					),
 				},
 			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
 		},
 		{
 			Name: "Reconciled normal - existing cg but failed",
@@ -462,6 +521,12 @@ func TestReconcileKind(t *testing.T) {
 						StatusSourceSinkResolved(""),
 					),
 				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
 			},
 		},
 		{
@@ -509,6 +574,12 @@ func TestReconcileKind(t *testing.T) {
 					),
 				},
 			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
 		},
 	}
 
@@ -516,7 +587,61 @@ func TestReconcileKind(t *testing.T) {
 
 		reconciler := &Reconciler{
 			ConsumerGroupLister: listers.GetConsumerGroupLister(),
-			InternalsClient:     fakeconsumergroupinformer.Get(ctx),
+			InternalsClient:     fakeconsumergroupinformer.Get(ctx).InternalV1alpha1(),
+		}
+
+		r := eventingkafkasourcereconciler.NewReconciler(
+			ctx,
+			logging.FromContext(ctx),
+			fakeeventingkafkaclient.Get(ctx),
+			listers.GetKafkaSourceLister(),
+			controller.GetEventRecorder(ctx),
+			reconciler,
+		)
+		return r
+	}))
+}
+
+func TestFinalizeKind(t *testing.T) {
+
+	testKey := fmt.Sprintf("%s/%s", SourceNamespace, SourceName)
+
+	table := TableTest{
+		{
+			Name: "Finalize normal",
+			Objects: []runtime.Object{
+				NewDeletedSource(),
+			},
+			Key:         testKey,
+			WantUpdates: []clientgotesting.UpdateActionImpl{},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				{
+					ActionImpl: clientgotesting.ActionImpl{
+						Namespace: ConsumerNamespace,
+						Resource: schema.GroupVersionResource{
+							Group:    kafkainternals.SchemeGroupVersion.Group,
+							Version:  kafkainternals.SchemeGroupVersion.Version,
+							Resource: "consumergroups",
+						},
+					},
+					Name: SourceUUID,
+				},
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the source namespace with configmap namespace, so skip it
+		},
+	}
+
+	table.Test(t, NewFactory(nil, func(ctx context.Context, listers *Listers, env *config.Env, row *TableRow) controller.Reconciler {
+
+		reconciler := &Reconciler{
+			SecretLister:        listers.GetSecretLister(),
+			ConsumerGroupLister: listers.GetConsumerGroupLister(),
+			InternalsClient:     fakeconsumergroupinformer.Get(ctx).InternalV1alpha1(),
+			NewKafkaClusterAdminClient: func(_ []string, _ *sarama.Config) (sarama.ClusterAdmin, error) {
+				return &kafkatesting.MockKafkaClusterAdmin{
+					T: t,
+				}, nil
+			},
 		}
 
 		r := eventingkafkasourcereconciler.NewReconciler(
@@ -557,4 +682,13 @@ func StatusSourceConsumerGroupReplicas(replicas int32) KRShapedOption {
 		ks := obj.(*sources.KafkaSource)
 		ks.Status.Consumers = replicas
 	}
+}
+
+func patchFinalizers() clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = SourceName
+	action.Namespace = SourceNamespace
+	patch := `{"metadata":{"finalizers":["` + finalizerName + `"],"resourceVersion":""}}`
+	action.Patch = []byte(patch)
+	return action
 }

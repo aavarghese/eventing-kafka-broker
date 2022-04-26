@@ -37,7 +37,7 @@ spec:
         - name: migrate
           image: ko://knative.dev/pkg/apiextensions/storageversion/cmd/migrate
           env:
-            - name: MIGRATE_CRD_IF_FOUND_NO_FAILURE
+            - name: IGNORE_NOT_FOUND
               value: "true"
           args:
             - "kafkasources.sources.knative.dev"
