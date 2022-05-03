@@ -1357,9 +1357,71 @@ func TestFinalizeKind(t *testing.T) {
 
 	table := TableTest{
 		{
-			Name: "Finalize normal",
+			Name: "Finalize normal - no consumers",
 			Objects: []runtime.Object{
 				NewSASLSSLSecret(ConsumerGroupNamespace, SecretName),
+				NewDeletedConsumeGroup(
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerConfigs(
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+							ConsumerGroupIdConfig("my.group.id"),
+						),
+						ConsumerAuth(&kafkainternals.Auth{
+							NetSpec: &bindings.KafkaNetSpec{
+								SASL: bindings.KafkaSASLSpec{
+									Enable: true,
+									User: bindings.SecretValueFromSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: SecretName,
+											},
+											Key: "user",
+										},
+									},
+									Password: bindings.SecretValueFromSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: SecretName,
+											},
+											Key: "password",
+										},
+									},
+									Type: bindings.SecretValueFromSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: SecretName,
+											},
+											Key: "type",
+										},
+									},
+								},
+								TLS: bindings.KafkaTLSSpec{
+									Enable: true,
+								},
+							},
+						}),
+					)),
+				),
+			},
+			Key:                     testKey,
+			SkipNamespaceValidation: true, // WantCreates compare the source namespace with configmap namespace, so skip it
+		},
+		{
+			Name: "Finalize normal - with consumers",
+			Objects: []runtime.Object{
+				NewSASLSSLSecret(ConsumerGroupNamespace, SecretName),
+				NewConsumer(1,
+					ConsumerSpec(NewConsumerSpec(
+						ConsumerTopics("t1", "t2"),
+						ConsumerConfigs(
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+							ConsumerGroupIdConfig("my.group.id"),
+						),
+						ConsumerVReplicas(1),
+						ConsumerPlacement(kafkainternals.PodBind{PodName: "p1", PodNamespace: systemNamespace}),
+						ConsumerSubscriber(NewSourceSinkReference()),
+					)),
+				),
 				NewDeletedConsumeGroup(
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerConfigs(
@@ -1411,10 +1473,10 @@ func TestFinalizeKind(t *testing.T) {
 						Resource: schema.GroupVersionResource{
 							Group:    kafkainternals.SchemeGroupVersion.Group,
 							Version:  kafkainternals.SchemeGroupVersion.Version,
-							Resource: "consumergroups",
+							Resource: "consumers",
 						},
 					},
-					Name: ConsumerGroupName,
+					Name: fmt.Sprintf("%s-%d", ConsumerNamePrefix, 1),
 				},
 			},
 			SkipNamespaceValidation: true, // WantCreates compare the source namespace with configmap namespace, so skip it
@@ -1425,6 +1487,7 @@ func TestFinalizeKind(t *testing.T) {
 	table.Test(t, NewFactory(nil, func(ctx context.Context, listers *Listers, env *config.Env, row *TableRow) controller.Reconciler {
 
 		r := &Reconciler{
+			ConsumerLister:  listers.GetConsumerLister(),
 			InternalsClient: fakekafkainternalsclient.Get(ctx).InternalV1alpha1(),
 			SecretLister:    listers.GetSecretLister(),
 			NewKafkaClusterAdminClient: func(_ []string, _ *sarama.Config) (sarama.ClusterAdmin, error) {

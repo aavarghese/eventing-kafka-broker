@@ -112,8 +112,16 @@ func (r Reconciler) ReconcileKind(ctx context.Context, cg *kafkainternals.Consum
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, cg *kafkainternals.ConsumerGroup) reconciler.Event {
 
-	if err := r.finalizeConsumerGroup(ctx, cg); err != nil {
-		return fmt.Errorf("failed to finalize consumer group: %w", err)
+	// Get consumers associated with the ConsumerGroup.
+	existingConsumers, err := r.ConsumerLister.Consumers(cg.GetNamespace()).List(labels.SelectorFromSet(cg.Spec.Selector))
+	if err != nil {
+		return cg.MarkReconcileConsumersFailed("ListConsumers", err)
+	}
+
+	for _, c := range existingConsumers {
+		if err := r.finalizeConsumer(ctx, c); err != nil {
+			return cg.MarkReconcileConsumersFailed("FinalizeConsumer", err)
+		}
 	}
 
 	options, err := r.newAuthConfigOption(ctx, cg)
@@ -141,15 +149,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, cg *kafkainternals.Consum
 	}
 
 	logging.FromContext(ctx).Infow("consumer group deleted", zap.String("id", groupId))
-	return nil
-}
-
-func (r Reconciler) finalizeConsumerGroup(ctx context.Context, cg *kafkainternals.ConsumerGroup) error {
-
-	err := r.InternalsClient.ConsumerGroups(cg.GetNamespace()).Delete(ctx, cg.GetName(), metav1.DeleteOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to remove consumer group %s/%s: %w", cg.GetNamespace(), cg.GetName(), err)
-	}
 	return nil
 }
 
