@@ -24,6 +24,7 @@ import (
 	"sort"
 
 	"github.com/Shopify/sarama"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/utils/pointer"
 	sources "knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	eventingduckv1alpha1 "knative.dev/eventing/pkg/apis/duck/v1alpha1"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
 	"knative.dev/eventing/pkg/scheduler"
@@ -71,6 +73,9 @@ type Reconciler struct {
 	InitOffsetsFunc kafka.InitOffsetsFunc
 
 	SystemNamespace string
+	// NewKafkaClusterAdminClient creates new sarama ClusterAdmin. It's convenient to add this as Reconciler field so that we can
+	// mock the function used during the reconciliation loop.
+	NewKafkaClusterAdminClient kafka.NewClusterAdminClientFunc
 }
 
 func (r Reconciler) ReconcileKind(ctx context.Context, cg *kafkainternals.ConsumerGroup) reconciler.Event {
@@ -102,6 +107,49 @@ func (r Reconciler) ReconcileKind(ctx context.Context, cg *kafkainternals.Consum
 
 	cg.MarkReconcileConsumersSucceeded()
 
+	return nil
+}
+
+func (r *Reconciler) FinalizeKind(ctx context.Context, cg *kafkainternals.ConsumerGroup) reconciler.Event {
+
+	if err := r.finalizeConsumerGroup(ctx, cg); err != nil {
+		return fmt.Errorf("failed to finalize consumer group: %w", err)
+	}
+
+	options, err := r.newAuthConfigOption(ctx, cg)
+	if err != nil {
+		return fmt.Errorf("failed to create config options for Kafka cluster auth: %w", err)
+	}
+
+	saramaConfig, err := kafka.GetSaramaConfig(options)
+	if err != nil {
+		return fmt.Errorf("failed to get cluster admin sarama config: %w", err)
+	}
+	bootstrapServers := kafka.BootstrapServersArray(cg.Spec.Template.Spec.Configs.Configs["bootstrap.servers"])
+
+	kafkaClusterAdminClient, err := r.NewKafkaClusterAdminClient(bootstrapServers, saramaConfig)
+	if err != nil {
+		logging.FromContext(ctx).Errorw("unable to create a kafka client", zap.Error(err))
+		return err
+	}
+	defer kafkaClusterAdminClient.Close()
+
+	groupId := cg.Spec.Template.Spec.Configs.Configs["group.id"]
+	if err := kafkaClusterAdminClient.DeleteConsumerGroup(groupId); err != nil && !errors.Is(sarama.ErrGroupIDNotFound, err) {
+		logging.FromContext(ctx).Errorw("unable to delete the consumer group", zap.String("id", groupId), zap.Error(err))
+		return err
+	}
+
+	logging.FromContext(ctx).Infow("consumer group deleted", zap.String("id", groupId))
+	return nil
+}
+
+func (r Reconciler) finalizeConsumerGroup(ctx context.Context, cg *kafkainternals.ConsumerGroup) error {
+
+	err := r.InternalsClient.ConsumerGroups(cg.GetNamespace()).Delete(ctx, cg.GetName(), metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to remove consumer group %s/%s: %w", cg.GetNamespace(), cg.GetName(), err)
+	}
 	return nil
 }
 
