@@ -65,7 +65,7 @@ function knative_teardown() {
   if ! is_release_branch; then
     echo ">> Delete Knative Eventing from HEAD"
     pushd .
-    cd eventing || fail_test "Failed to set up Eventing"
+    #cd eventing || fail_test "Failed to set up Eventing"
     kubectl delete --ignore-not-found -f "${EVENTING_CONFIG}"
     popd || fail_test "Failed to set up Eventing"
   else

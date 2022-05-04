@@ -33,7 +33,7 @@ import (
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/consumer"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/consumergroup"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/sink"
-	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/source"
+	sourcev2 "knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/source/v2"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/trigger"
 )
 
@@ -56,11 +56,6 @@ func main() {
 	sinkEnv, err := config.GetEnvConfig("SINK")
 	if err != nil {
 		log.Fatal("cannot process environment variables with prefix SINK", err)
-	}
-
-	sourceEnv, err := config.GetEnvConfig("SOURCE")
-	if err != nil {
-		log.Fatal("cannot process environment variables with prefix SOURCE", err)
 	}
 
 	sharedmain.MainNamed(signals.NewContext(), component,
@@ -101,7 +96,7 @@ func main() {
 		injection.NamedControllerConstructor{
 			Name: "source-controller",
 			ControllerConstructor: func(ctx context.Context, watcher configmap.Watcher) *controller.Impl {
-				return source.NewController(ctx, watcher, sourceEnv)
+				return sourcev2.NewController(ctx)
 			},
 		},
 
