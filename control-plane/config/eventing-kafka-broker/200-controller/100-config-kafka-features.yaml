@@ -25,4 +25,4 @@ data:
     # 1. Enabled: The rate limiter is applied.
     # 2. Disabled: The rate limiter is not applied.
     dispatcher.rate-limiter: "disabled"
-  dispatcher.rate-limiter: "disabled"
+  dispatcher.rate-limiter: "enabled"
