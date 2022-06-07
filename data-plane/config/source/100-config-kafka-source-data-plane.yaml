@@ -97,7 +97,8 @@ data:
     value.deserializer=io.cloudevents.kafka.CloudEventDeserializer
     fetch.min.bytes=1
     heartbeat.interval.ms=3000
-    max.partition.fetch.bytes=1048576
+    # max.partition.fetch.bytes=1048576
+    max.partition.fetch.bytes=128
     session.timeout.ms=10000
     # ssl.key.password=
     # ssl.keystore.location=
@@ -130,7 +131,7 @@ data:
     # ssl.keystore.type=
     # ssl.protocol=
     # ssl.provider=
-    auto.commit.interval.ms=5000
+    auto.commit.interval.ms=500
     check.crcs=true
     # client.rack=
     fetch.max.wait.ms=500
