@@ -29,5 +29,5 @@ data:
     # 1. Enabled: The metrics are recorded.
     # 2. Disabled: The metrics are not recorded.
     dispatcher.new-metrics: "disabled"
-  dispatcher.rate-limiter: "disabled"
-  dispatcher.new-metrics: "disabled"
+  dispatcher.rate-limiter: "enabled"
+  dispatcher.new-metrics: "enabled"
