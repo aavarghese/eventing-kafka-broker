@@ -5,7 +5,7 @@ set -o nounset
 set -o pipefail
 
 REPO_ROOT=$(dirname $0)/..
-REPO_ROOT=$(readlink -m $REPO_ROOT)
+REPO_ROOT=$(/usr/local/bin/greadlink -f $REPO_ROOT)
 
 DATA_PLANE_OUTPUT_DIR=${REPO_ROOT}/data-plane/contract/src/main/java
 CONTROL_PLANE_OUTPUT_DIR=${REPO_ROOT}

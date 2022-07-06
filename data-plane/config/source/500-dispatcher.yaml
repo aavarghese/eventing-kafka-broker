@@ -59,7 +59,7 @@ spec:
       containers:
         - name: kafka-source-dispatcher
           image: ${KNATIVE_KAFKA_DISPATCHER_IMAGE}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           volumeMounts:
             - mountPath: /etc/config
               name: config-kafka-source-data-plane

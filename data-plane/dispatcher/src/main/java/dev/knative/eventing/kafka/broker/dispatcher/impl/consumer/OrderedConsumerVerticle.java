@@ -78,6 +78,8 @@ public class OrderedConsumerVerticle extends BaseConsumerVerticle {
 
     final var vReplicas = Math.max(1, egress.getVReplicas());
     final var tokens = maxPollRecords * vReplicas;
+    System.out.println("ENABLED RL Cons: "+ egress.getFeatureFlags().getEnableRateLimiter());
+
     if (egress.getFeatureFlags().getEnableRateLimiter()) {
       this.bucket = new LocalBucketBuilder()
         .addLimit(Bandwidth.classic(tokens, Refill.greedy(tokens, Duration.ofSeconds(1))))
@@ -205,6 +207,9 @@ public class OrderedConsumerVerticle extends BaseConsumerVerticle {
       final var executor = executorFor(topicPartition);
       executor.offer(() -> dispatch(recordContext));
 
+      System.out.println("ENABLED RL: "+ egress.getFeatureFlags().getEnableRateLimiter());
+      System.out.println("ENABLED NEW METRICS: "+ egress.getFeatureFlags().getEnableNewMetrics());
+
       if (egress.getFeatureFlags().getEnableNewMetrics()) {
         setValueQueueLength(topicPartition, () -> executor.getQueueSize());
       }
@@ -216,6 +221,9 @@ public class OrderedConsumerVerticle extends BaseConsumerVerticle {
       return Future.failedFuture("Consumer verticle closed topics=" + topics + " resource=" + egress.getReference());
     }
 
+    System.out.println("ENABLED RL: "+ egress.getFeatureFlags().getEnableRateLimiter());
+    System.out.println("ENABLED NEW METRICS: "+ egress.getFeatureFlags().getEnableNewMetrics());
+    
     if (egress.getFeatureFlags().getEnableNewMetrics()) {
       recordExecutorQueueLatency(recordContext); //executor has dispatched
     }

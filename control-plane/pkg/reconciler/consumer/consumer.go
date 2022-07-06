@@ -116,6 +116,9 @@ func (r Reconciler) reconcileContractResource(ctx context.Context, c *kafkainter
 	egress.Reference = userFacingResourceRef
 	egress.VReplicas = *c.Spec.VReplicas
 
+	fmt.Println("ENABLED RL 2: ", egress.FeatureFlags.EnableRateLimiter)
+	fmt.Println("ENABLED NEW METRICS 2: ", egress.FeatureFlags.EnableNewMetrics)
+
 	resource := &contract.Resource{
 		Uid:                 string(c.UID),
 		Topics:              c.Spec.Topics,
@@ -151,6 +154,8 @@ func (r Reconciler) reconcileContractEgress(ctx context.Context, c *kafkainterna
 		c.Status.DeliveryStatus.DeadLetterSinkURI, _ = apis.ParseURL(egressConfig.DeadLetter)
 	}
 
+	fmt.Println("ENABLED RL 1: ", r.KafkaFeatureFlags.IsDispatcherRateLimiterEnabled())
+	fmt.Println("ENABLED NEW METRICS 1: ", r.KafkaFeatureFlags.IsDispatcherNewMetricsEnabled())
 	egress := &contract.Egress{
 		ConsumerGroup: c.Spec.Configs.Configs["group.id"],
 		Destination:   destination.String(),

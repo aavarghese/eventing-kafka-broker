@@ -217,6 +217,7 @@ public class ConsumerVerticleFactoryImpl implements ConsumerVerticleFactory {
        consumerVerticle.setRecordDispatcher(recordDispatcher);
        consumerVerticle.setConsumer(consumer);
        consumerVerticle.setCloser(metricsCloser);
+       consumerVerticle.setEgress(egress);
      })
        .mapEmpty();
 

@@ -15,6 +15,7 @@
  */
 package dev.knative.eventing.kafka.broker.dispatcher.impl.consumer;
 
+import dev.knative.eventing.kafka.broker.contract.DataPlaneContract;
 import dev.knative.eventing.kafka.broker.core.AsyncCloseable;
 import dev.knative.eventing.kafka.broker.dispatcher.RecordDispatcher;
 import io.cloudevents.CloudEvent;
@@ -45,6 +46,8 @@ public abstract class BaseConsumerVerticle extends AbstractVerticle {
 
   KafkaConsumer<Object, CloudEvent> consumer;
   RecordDispatcher recordDispatcher;
+  DataPlaneContract.Egress egress;
+  
   private AsyncCloseable closeable;
 
   public BaseConsumerVerticle(final Initializer initializer, final Set<String> topics) {
@@ -90,6 +93,10 @@ public abstract class BaseConsumerVerticle extends AbstractVerticle {
 
   public void setCloser(AsyncCloseable closeable) {
     this.closeable = closeable;
+  }
+
+  public void setEgress(DataPlaneContract.Egress egress) {
+    this.egress = egress;
   }
 
   void exceptionHandler(Throwable cause) {
