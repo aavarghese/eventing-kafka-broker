@@ -23,6 +23,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	_ "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/informers/keda/v1alpha1/scaledobject/fake"
+	kafkainternals "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/internals/kafka/eventing/v1alpha1"
+	_ "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/informers/eventing/v1alpha1/consumer/fake"
+	_ "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/informers/eventing/v1alpha1/consumergroup/fake"
 	_ "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource/fake"
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/statefulset/fake"
@@ -31,9 +35,7 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
 
-	kafkainternals "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/internals/kafka/eventing/v1alpha1"
-	_ "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/informers/eventing/v1alpha1/consumer/fake"
-	_ "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/informers/eventing/v1alpha1/consumergroup/fake"
+	kedaclient "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/client/fake"
 )
 
 const (
@@ -86,6 +88,8 @@ func TestNewController(t *testing.T) {
 			},
 		},
 	)
+
+	ctx, _ = kedaclient.With(ctx)
 
 	t.Setenv("AUTOSCALER_REFRESH_PERIOD", RefreshPeriod)
 	t.Setenv("POD_CAPACITY", PodCapacity)

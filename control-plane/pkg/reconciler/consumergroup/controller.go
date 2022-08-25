@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/eventing-kafka/pkg/apis/sources/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/kafka/offset"
 	"knative.dev/eventing/pkg/scheduler"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -50,6 +51,9 @@ import (
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/informers/eventing/v1alpha1/consumer"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/informers/eventing/v1alpha1/consumergroup"
 	cgreconciler "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/reconciler/eventing/v1alpha1/consumergroup"
+
+	kedaclient "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/client"
+	scaledobjectinformer "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/informers/keda/v1alpha1/scaledobject"
 )
 
 const (
@@ -106,6 +110,7 @@ func NewController(ctx context.Context) *controller.Impl {
 		InternalsClient:            internalsclient.Get(ctx).InternalV1alpha1(),
 		SecretLister:               secretinformer.Get(ctx).Lister(),
 		KubeClient:                 kubeclient.Get(ctx),
+		KedaClient:                 kedaclient.Get(ctx),
 		NameGenerator:              names.SimpleNameGenerator,
 		NewKafkaClient:             sarama.NewClient,
 		InitOffsetsFunc:            offset.InitOffsets,
@@ -126,6 +131,26 @@ func NewController(ctx context.Context) *controller.Impl {
 	}
 
 	ResyncOnStatefulSetChange(ctx, globalResync)
+
+	scaledobjectInformer := scaledobjectinformer.Get(ctx)
+
+	// don't handle updates on ScaledObject.Status field
+	scaledobjectInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&v1beta1.KafkaSource{}), //TODO add others
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: impl.EnqueueControllerOf,
+			UpdateFunc: func(old, new interface{}) {
+				if mOld, ok := old.(metav1.Object); ok {
+					if mNew, ok := new.(metav1.Object); ok {
+						if mNew.GetGeneration() != mOld.GetGeneration() {
+							impl.EnqueueControllerOf(new)
+						}
+					}
+				}
+			},
+			DeleteFunc: impl.EnqueueControllerOf,
+		},
+	})
 
 	return impl
 }

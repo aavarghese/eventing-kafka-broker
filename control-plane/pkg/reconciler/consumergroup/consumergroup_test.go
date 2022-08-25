@@ -51,6 +51,9 @@ import (
 	kafkatesting "knative.dev/eventing-kafka-broker/control-plane/pkg/kafka/testing"
 
 	. "knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/testing"
+
+	"knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
+	kedaclient "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/client/fake"
 )
 
 type SchedulerFunc func(vpod scheduler.VPod) ([]eventingduckv1alpha1.Placement, error)
@@ -143,8 +146,9 @@ func TestReconcileKind(t *testing.T) {
 							{PodName: "p1", VReplicas: 1},
 							{PodName: "p2", VReplicas: 1},
 						}
-						_ = cg.MarkReconcileConsumersFailed("PropagateSubscriberURI", ErrNoSubscriberURI)
+						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						return cg
 					}(),
 				},
@@ -347,6 +351,7 @@ func TestReconcileKind(t *testing.T) {
 							Message: "failed to bind resource to pod: EOF",
 						})
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						return cg
 					}(),
 				},
@@ -457,6 +462,7 @@ func TestReconcileKind(t *testing.T) {
 						}
 						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						cg.Status.SubscriberURI = ConsumerSubscriberURI
 						return cg
 					}(),
@@ -586,7 +592,6 @@ func TestReconcileKind(t *testing.T) {
 				finalizerUpdatedEvent,
 				"Warning InternalError failed to initialize consumer group offset: failed to create config options for Kafka cluster auth: failed to read secret test-cg-ns/non-existing secret: secret \"non-existing secret\" not found",
 			},
-			WantCreates: []runtime.Object{},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
 				{
 					Object: func() runtime.Object {
@@ -754,6 +759,7 @@ func TestReconcileKind(t *testing.T) {
 				}),
 			},
 			WantCreates: []runtime.Object{
+				NewKedaSecret(ConsumerGroupNamespace, "test-cg-secret"),
 				NewConsumer(1,
 					ConsumerSpec(NewConsumerSpec(
 						ConsumerTopics("t1", "t2"),
@@ -857,6 +863,7 @@ func TestReconcileKind(t *testing.T) {
 						}
 						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						cg.Status.SubscriberURI = ConsumerSubscriberURI
 						return cg
 					}(),
@@ -941,8 +948,9 @@ func TestReconcileKind(t *testing.T) {
 						cg.Status.Placements = []eventingduckv1alpha1.Placement{
 							{PodName: "p1", VReplicas: 1},
 						}
-						_ = cg.MarkReconcileConsumersFailed("PropagateSubscriberURI", ErrNoSubscriberURI)
+						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						return cg
 					}(),
 				},
@@ -1024,8 +1032,9 @@ func TestReconcileKind(t *testing.T) {
 							{PodName: "p1", VReplicas: 1},
 							{PodName: "p2", VReplicas: 1},
 						}
-						_ = cg.MarkReconcileConsumersFailed("PropagateSubscriberURI", ErrNoSubscriberURI)
+						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						return cg
 					}(),
 				},
@@ -1110,6 +1119,7 @@ func TestReconcileKind(t *testing.T) {
 						}
 						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						cg.Status.SubscriberURI = ConsumerSubscriberURI
 						return cg
 					}(),
@@ -1235,6 +1245,7 @@ func TestReconcileKind(t *testing.T) {
 						}
 						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						cg.Status.SubscriberURI = ConsumerSubscriberURI
 						cg.Status.DeadLetterSinkURI = ConsumerDeadLetterSinkURI
 						cg.Status.Replicas = pointer.Int32(1)
@@ -1343,6 +1354,7 @@ func TestReconcileKind(t *testing.T) {
 						}
 						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						cg.Status.SubscriberURI = ConsumerSubscriberURI
 						cg.Status.Replicas = pointer.Int32(1)
 						return cg
@@ -1447,8 +1459,9 @@ func TestReconcileKind(t *testing.T) {
 							{PodName: "p1", VReplicas: 1},
 							{PodName: "p2", VReplicas: 1},
 						}
-						_ = cg.MarkReconcileConsumersFailed("PropagateSubscriberURI", ErrNoSubscriberURI)
+						cg.MarkReconcileConsumersSucceeded()
 						cg.MarkScheduleSucceeded()
+						cg.MarkKedaScalingSucceeded()
 						cg.Status.Replicas = pointer.Int32(0)
 						return cg
 					}(),
@@ -1515,6 +1528,7 @@ func TestReconcileKind(t *testing.T) {
 
 	tt.Test(t, NewFactory(nil, func(ctx context.Context, listers *Listers, env *config.Env, row *TableRow) controller.Reconciler {
 
+		ctx, _ = kedaclient.With(ctx)
 		r := Reconciler{
 			SchedulerFunc: func(s string) scheduler.Scheduler {
 				return row.OtherTestData[testSchedulerKey].(scheduler.Scheduler)
@@ -1523,6 +1537,7 @@ func TestReconcileKind(t *testing.T) {
 			InternalsClient: fakekafkainternalsclient.Get(ctx).InternalV1alpha1(),
 			SecretLister:    listers.GetSecretLister(),
 			KubeClient:      kubeclient.Get(ctx),
+			KedaClient:      kedaclient.Get(ctx),
 			NameGenerator:   &CounterGenerator{},
 			NewKafkaClient: func(addrs []string, config *sarama.Config) (sarama.Client, error) {
 				return &kafkatesting.MockKafkaClient{}, nil
@@ -1780,5 +1795,12 @@ func patchFinalizers() clientgotesting.PatchActionImpl {
 	action.Namespace = ConsumerGroupNamespace
 	patch := `{"metadata":{"finalizers":["` + finalizerName + `"],"resourceVersion":""}}`
 	action.Patch = []byte(patch)
+	return action
+}
+
+func createNewAction() clientgotesting.GetActionImpl {
+	action := clientgotesting.GetActionImpl{}
+	action.Resource = keda.KedaSchemeGroupVersion.WithResource("")
+	action.Name = ConsumerGroupName
 	return action
 }

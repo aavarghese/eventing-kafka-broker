@@ -141,6 +141,12 @@ func WithConsumerGroupOwnerRef(ownerref *metav1.OwnerReference) ConsumerGroupOpt
 	}
 }
 
+func WithConsumerGroupAnnotations(annots map[string]string) ConsumerGroupOption {
+	return func(cg *kafkainternals.ConsumerGroup) {
+		cg.ObjectMeta.Annotations = annots
+	}
+}
+
 func WithConsumerGroupMetaLabels(labels map[string]string) ConsumerGroupOption {
 	return func(cg *kafkainternals.ConsumerGroup) {
 		cg.Labels = labels
