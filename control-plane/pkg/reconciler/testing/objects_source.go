@@ -28,6 +28,8 @@ import (
 
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/contract"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/base"
+
+	annot "knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
 )
 
 const (
@@ -40,14 +42,24 @@ const (
 
 var (
 	SourceTopics = []string{"t1", "t2"}
+
+	SourceAnnotations = map[string]string{
+		annot.AutoscalingClassAnnotation:               annot.KEDA,
+		annot.AutoscalingMinScaleAnnotation:            "0",
+		annot.AutoscalingMaxScaleAnnotation:            "5",
+		annot.KedaAutoscalingPollingIntervalAnnotation: "30",
+		annot.KedaAutoscalingCooldownPeriodAnnotation:  "300",
+		annot.KedaAutoscalingKafkaLagThreshold:         "10",
+	}
 )
 
 func NewSource(options ...KRShapedOption) *sources.KafkaSource {
 	s := &sources.KafkaSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: SourceNamespace,
-			Name:      SourceName,
-			UID:       SourceUUID,
+			Namespace:   SourceNamespace,
+			Name:        SourceName,
+			UID:         SourceUUID,
+			Annotations: SourceAnnotations,
 		},
 		Spec: sources.KafkaSourceSpec{
 			KafkaAuthSpec: v1beta1.KafkaAuthSpec{
@@ -125,6 +137,13 @@ func WithSourceSink(d duckv1.Destination) KRShapedOption {
 	return func(obj duckv1.KRShaped) {
 		s := obj.(*sources.KafkaSource)
 		s.Spec.Sink = d
+	}
+}
+
+func WithSourceConsumers(replicas int32) KRShapedOption {
+	return func(obj duckv1.KRShaped) {
+		s := obj.(*sources.KafkaSource)
+		s.Spec.Consumers = pointer.Int32Ptr(replicas)
 	}
 }
 

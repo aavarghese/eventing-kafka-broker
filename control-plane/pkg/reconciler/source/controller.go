@@ -30,7 +30,10 @@ import (
 	kafkainformer "knative.dev/eventing-kafka/pkg/client/injection/informers/sources/v1beta1/kafkasource"
 	"knative.dev/eventing-kafka/pkg/client/injection/reconciler/sources/v1beta1/kafkasource"
 
+	kedaclient "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/client"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/consumergroup"
+	kafkaclientset "knative.dev/eventing-kafka/pkg/client/injection/client"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
 func NewController(ctx context.Context) *controller.Impl {
@@ -41,8 +44,11 @@ func NewController(ctx context.Context) *controller.Impl {
 	sources.RegisterAlternateKafkaConditionSet(conditionSet)
 
 	r := &Reconciler{
-		ConsumerGroupLister: consumerGroupInformer.Lister(),
-		InternalsClient:     consumergroupclient.Get(ctx),
+		ConsumerGroupLister:  consumerGroupInformer.Lister(),
+		InternalsClient:      consumergroupclient.Get(ctx),
+		KafkaSourceClientSet: kafkaclientset.Get(ctx),
+		KubeClient:           kubeclient.Get(ctx),
+		KedaClient:           kedaclient.Get(ctx),
 	}
 
 	impl := kafkasource.NewImpl(ctx, r)
