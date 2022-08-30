@@ -29,7 +29,7 @@ import (
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/contract"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/base"
 
-	annot "knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
+	"knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
 )
 
 const (
@@ -44,12 +44,12 @@ var (
 	SourceTopics = []string{"t1", "t2"}
 
 	SourceAnnotations = map[string]string{
-		annot.AutoscalingClassAnnotation:               annot.KEDA,
-		annot.AutoscalingMinScaleAnnotation:            "0",
-		annot.AutoscalingMaxScaleAnnotation:            "5",
-		annot.KedaAutoscalingPollingIntervalAnnotation: "30",
-		annot.KedaAutoscalingCooldownPeriodAnnotation:  "300",
-		annot.KedaAutoscalingKafkaLagThreshold:         "10",
+		keda.AutoscalingClassAnnotation:               keda.KEDA,
+		keda.AutoscalingMinScaleAnnotation:            "0",
+		keda.AutoscalingMaxScaleAnnotation:            "5",
+		keda.KedaAutoscalingPollingIntervalAnnotation: "30",
+		keda.KedaAutoscalingCooldownPeriodAnnotation:  "300",
+		keda.KedaAutoscalingKafkaLagThreshold:         "10",
 	}
 )
 

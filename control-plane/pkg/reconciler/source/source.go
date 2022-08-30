@@ -39,7 +39,7 @@ import (
 	internalsclient "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/clientset/versioned"
 	internalslst "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/listers/eventing/v1alpha1"
 
-	annot "knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
+	"knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
 	kedaclientset "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/clientset/versioned"
 	kafkaclientset "knative.dev/eventing-kafka/pkg/client/clientset/versioned"
 )
@@ -159,23 +159,23 @@ func (r Reconciler) reconcileConsumerGroup(ctx context.Context, ks *sources.Kafk
 	// TODO: make these parameters below configurable and maybe unexposed
 	if ks.Annotations != nil {
 		expectedCg.Annotations = map[string]string{}
-		if ks.Annotations[annot.AutoscalingClassAnnotation] != "" {
-			expectedCg.Annotations[annot.AutoscalingClassAnnotation] = ks.Annotations[annot.AutoscalingClassAnnotation]
+		if ks.Annotations[keda.AutoscalingClassAnnotation] != "" {
+			expectedCg.Annotations[keda.AutoscalingClassAnnotation] = ks.Annotations[keda.AutoscalingClassAnnotation]
 		}
-		if ks.Annotations[annot.AutoscalingMinScaleAnnotation] != "" {
-			expectedCg.Annotations[annot.AutoscalingMinScaleAnnotation] = ks.Annotations[annot.AutoscalingMinScaleAnnotation]
+		if ks.Annotations[keda.AutoscalingMinScaleAnnotation] != "" {
+			expectedCg.Annotations[keda.AutoscalingMinScaleAnnotation] = ks.Annotations[keda.AutoscalingMinScaleAnnotation]
 		}
-		if ks.Annotations[annot.AutoscalingMaxScaleAnnotation] != "" {
-			expectedCg.Annotations[annot.AutoscalingMaxScaleAnnotation] = ks.Annotations[annot.AutoscalingMaxScaleAnnotation]
+		if ks.Annotations[keda.AutoscalingMaxScaleAnnotation] != "" {
+			expectedCg.Annotations[keda.AutoscalingMaxScaleAnnotation] = ks.Annotations[keda.AutoscalingMaxScaleAnnotation]
 		}
-		if ks.Annotations[annot.KedaAutoscalingPollingIntervalAnnotation] != "" {
-			expectedCg.Annotations[annot.KedaAutoscalingPollingIntervalAnnotation] = ks.Annotations[annot.KedaAutoscalingPollingIntervalAnnotation]
+		if ks.Annotations[keda.KedaAutoscalingPollingIntervalAnnotation] != "" {
+			expectedCg.Annotations[keda.KedaAutoscalingPollingIntervalAnnotation] = ks.Annotations[keda.KedaAutoscalingPollingIntervalAnnotation]
 		}
-		if ks.Annotations[annot.KedaAutoscalingCooldownPeriodAnnotation] != "" {
-			expectedCg.Annotations[annot.KedaAutoscalingCooldownPeriodAnnotation] = ks.Annotations[annot.KedaAutoscalingCooldownPeriodAnnotation]
+		if ks.Annotations[keda.KedaAutoscalingCooldownPeriodAnnotation] != "" {
+			expectedCg.Annotations[keda.KedaAutoscalingCooldownPeriodAnnotation] = ks.Annotations[keda.KedaAutoscalingCooldownPeriodAnnotation]
 		}
-		if ks.Annotations[annot.KedaAutoscalingKafkaLagThreshold] != "" {
-			expectedCg.Annotations[annot.KedaAutoscalingKafkaLagThreshold] = ks.Annotations[annot.KedaAutoscalingKafkaLagThreshold]
+		if ks.Annotations[keda.KedaAutoscalingKafkaLagThreshold] != "" {
+			expectedCg.Annotations[keda.KedaAutoscalingKafkaLagThreshold] = ks.Annotations[keda.KedaAutoscalingKafkaLagThreshold]
 		}
 	}
 

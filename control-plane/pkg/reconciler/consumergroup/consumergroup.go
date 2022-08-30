@@ -98,7 +98,7 @@ func (r Reconciler) ReconcileKind(ctx context.Context, cg *kafkainternals.Consum
 	}
 	cg.MarkScheduleSucceeded()
 
-	if err := r.reconcileKedaObjects(ctx, cg); err != nil {
+	if err := r.reconcileKeda(ctx, cg); err != nil {
 		return cg.MarkKedaScalingFailed("KedaScaling", err)
 	}
 	cg.MarkKedaScalingSucceeded()
@@ -433,7 +433,7 @@ func (r Reconciler) reconcileInitialOffset(ctx context.Context, cg *kafkainterna
 	return nil
 }
 
-func (r Reconciler) reconcileKedaObjects(ctx context.Context, cg *kafkainternals.ConsumerGroup) error {
+func (r Reconciler) reconcileKeda(ctx context.Context, cg *kafkainternals.ConsumerGroup) error {
 	// check if KEDA is installed
 	// TODO: code below failing unit tests with err: "panic: interface conversion: testing.ActionImpl is not testing.GetAction: missing method GetName"
 	/*if err := discovery.ServerSupportsVersion(r.KubeClient.Discovery(), keda.KedaSchemeGroupVersion); err != nil {
@@ -450,52 +450,58 @@ func (r Reconciler) reconcileKedaObjects(ctx context.Context, cg *kafkainternals
 	}
 
 	if !hasAuthSpecAuthConfig(cg.Spec.Template.Spec.Auth) && hasNetSpecAuthConfig(cg.Spec.Template.Spec.Auth) {
-		var triggerAuthentication *kedav1alpha1.TriggerAuthentication
-		var secret *corev1.Secret
-		if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable || cg.Spec.Template.Spec.Auth.NetSpec.TLS.Enable {
-			saslType, err := r.retrieveSaslTypeIfPresent(ctx, cg)
-			if err != nil {
-				return err
-			}
+		return r.reconcileKedaObjects(ctx, cg)
+	}
+	return nil
+}
 
-			triggerAuthentication, secret, err = reckafka.GenerateTriggerAuthentication(cg, saslType)
-			if err != nil {
-				return err
-			}
-		}
-
-		triggers, err := reckafka.GenerateScaleTriggers(cg, triggerAuthentication)
-		if err != nil {
-			return err
-		}
-		scaledObject, err := keda.GenerateScaledObject(cg, cg.GetGroupVersionKind(), reckafka.GenerateScaleTarget(cg), triggers)
+func (r Reconciler) reconcileKedaObjects(ctx context.Context, cg *kafkainternals.ConsumerGroup) error {
+	var triggerAuthentication *kedav1alpha1.TriggerAuthentication
+	var secret *corev1.Secret
+	if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable || cg.Spec.Template.Spec.Auth.NetSpec.TLS.Enable {
+		saslType, err := r.retrieveSaslTypeIfPresent(ctx, cg)
 		if err != nil {
 			return err
 		}
 
-		if triggerAuthentication != nil && secret != nil {
-			err = r.reconcileSecret(ctx, secret, cg)
+		triggerAuthentication, secret, err = reckafka.GenerateTriggerAuthentication(cg, saslType)
+		if err != nil {
+			return err
+		}
+	}
 
-			// if the event was wrapped inside an error, consider the reconciliation as failed
-			if _, isEvent := err.(*reconciler.ReconcilerEvent); !isEvent {
-				return err
-			}
+	triggers, err := reckafka.GenerateScaleTriggers(cg, triggerAuthentication)
+	if err != nil {
+		return err
+	}
+	scaledObject, err := keda.GenerateScaledObject(cg, cg.GetGroupVersionKind(), reckafka.GenerateScaleTarget(cg), triggers)
+	if err != nil {
+		return err
+	}
 
-			err = r.reconcileTriggerAuthentication(ctx, triggerAuthentication, cg)
+	if triggerAuthentication != nil && secret != nil {
+		err = r.reconcileSecret(ctx, secret, cg)
 
-			// if the event was wrapped inside an error, consider the reconciliation as failed
-			if _, isEvent := err.(*reconciler.ReconcilerEvent); !isEvent {
-				return err
-			}
+		// if the event was wrapped inside an error, consider the reconciliation as failed
+		if _, isEvent := err.(*reconciler.ReconcilerEvent); !isEvent {
+			return err
 		}
 
-		err = r.reconcileScaledObject(ctx, scaledObject, cg)
+		err = r.reconcileTriggerAuthentication(ctx, triggerAuthentication, cg)
 
 		// if the event was wrapped inside an error, consider the reconciliation as failed
 		if _, isEvent := err.(*reconciler.ReconcilerEvent); !isEvent {
 			return err
 		}
 	}
+
+	err = r.reconcileScaledObject(ctx, scaledObject, cg)
+
+	// if the event was wrapped inside an error, consider the reconciliation as failed
+	if _, isEvent := err.(*reconciler.ReconcilerEvent); !isEvent {
+		return err
+	}
+
 	return nil
 }
 
