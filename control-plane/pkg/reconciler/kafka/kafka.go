@@ -85,98 +85,119 @@ func GenerateScaleTriggers(cg *kafkainternals.ConsumerGroup, triggerAuthenticati
 func GenerateTriggerAuthentication(cg *kafkainternals.ConsumerGroup, saslType *string) (*kedav1alpha1.TriggerAuthentication, *corev1.Secret, error) {
 
 	secretTargetRefs := []kedav1alpha1.AuthSecretTargetRef{}
+	var secret corev1.Secret
 
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-secret", cg.Name),
-			Namespace: cg.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*kmeta.NewControllerRef(cg),
-			},
-		},
-		Data:       make(map[string][]byte),
-		StringData: make(map[string]string),
-	}
-
-	if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable {
-
-		if saslType != nil {
-			switch *saslType {
-			case "SCRAM-SHA-256":
-				secret.StringData["sasl"] = "scram_sha256"
-			case "SCRAM-SHA-512":
-				secret.StringData["sasl"] = "scram_sha512"
-			case "PLAIN":
-				secret.StringData["sasl"] = "plaintext"
-			default:
-				return nil, nil, fmt.Errorf("SASL type value %q is not supported", *saslType)
-			}
-		} else {
-			secret.StringData["sasl"] = "plaintext" //default
-		}
-
-		sasl := kedav1alpha1.AuthSecretTargetRef{Parameter: "sasl", Name: secret.Name, Key: "sasl"}
-
-		username := kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "username",
-			Name:      cg.Spec.Template.Spec.Auth.NetSpec.SASL.User.SecretKeyRef.Name,
-			Key:       cg.Spec.Template.Spec.Auth.NetSpec.SASL.User.SecretKeyRef.Key,
-		}
-		password := kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "password",
-			Name:      cg.Spec.Template.Spec.Auth.NetSpec.SASL.Password.SecretKeyRef.Name,
-			Key:       cg.Spec.Template.Spec.Auth.NetSpec.SASL.Password.SecretKeyRef.Key,
-		}
-
-		secretTargetRefs = append(secretTargetRefs, sasl, username, password)
-	}
-
-	if cg.Spec.Template.Spec.Auth.NetSpec.TLS.Enable {
-		secret.StringData["tls"] = "enable"
-		tls := kedav1alpha1.AuthSecretTargetRef{Parameter: "tls", Name: secret.Name, Key: "tls"}
-		secretTargetRefs = append(secretTargetRefs, tls)
-
-		if cg.Spec.Template.Spec.Auth.NetSpec.TLS.CACert.SecretKeyRef != nil {
-			ca := kedav1alpha1.AuthSecretTargetRef{
-				Parameter: "ca",
-				Name:      cg.Spec.Template.Spec.Auth.NetSpec.TLS.CACert.SecretKeyRef.Name,
-				Key:       cg.Spec.Template.Spec.Auth.NetSpec.TLS.CACert.SecretKeyRef.Key,
-			}
-
-			secretTargetRefs = append(secretTargetRefs, ca)
-		}
-
-		if cg.Spec.Template.Spec.Auth.NetSpec.TLS.Cert.SecretKeyRef != nil {
-			cert := kedav1alpha1.AuthSecretTargetRef{
-				Parameter: "cert",
-				Name:      cg.Spec.Template.Spec.Auth.NetSpec.TLS.Cert.SecretKeyRef.Name,
-				Key:       cg.Spec.Template.Spec.Auth.NetSpec.TLS.Cert.SecretKeyRef.Key,
-			}
-			secretTargetRefs = append(secretTargetRefs, cert)
-		}
-
-		if cg.Spec.Template.Spec.Auth.NetSpec.TLS.Key.SecretKeyRef != nil {
-			key := kedav1alpha1.AuthSecretTargetRef{
-				Parameter: "key",
-				Name:      cg.Spec.Template.Spec.Auth.NetSpec.TLS.Key.SecretKeyRef.Name,
-				Key:       cg.Spec.Template.Spec.Auth.NetSpec.TLS.Key.SecretKeyRef.Key,
-			}
-			secretTargetRefs = append(secretTargetRefs, key)
-		}
-	}
-
-	return &kedav1alpha1.TriggerAuthentication{
+	triggerAuth := &kedav1alpha1.TriggerAuthentication{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-trigger-auth", cg.Name),
 			Namespace: cg.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(cg),
 			},
+			Labels: map[string]string{
+				//TODO
+			},
 		},
 		Spec: kedav1alpha1.TriggerAuthenticationSpec{
 			SecretTargetRef: secretTargetRefs,
 		},
-	}, &secret, nil
+	}
+
+	if cg.Spec.Template.Spec.Auth.NetSpec != nil {
+		secret = corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-secret", cg.Name),
+				Namespace: cg.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					*kmeta.NewControllerRef(cg),
+				},
+			},
+			Data:       make(map[string][]byte),
+			StringData: make(map[string]string),
+		}
+
+		if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable {
+
+			if saslType != nil {
+				switch *saslType {
+				case "SCRAM-SHA-256":
+					secret.StringData["sasl"] = "scram_sha256"
+				case "SCRAM-SHA-512":
+					secret.StringData["sasl"] = "scram_sha512"
+				case "PLAIN":
+					secret.StringData["sasl"] = "plaintext"
+				default:
+					return nil, nil, fmt.Errorf("SASL type value %q is not supported", *saslType)
+				}
+			} else {
+				secret.StringData["sasl"] = "plaintext" //default
+			}
+
+			sasl := kedav1alpha1.AuthSecretTargetRef{Parameter: "sasl", Name: secret.Name, Key: "sasl"}
+
+			username := kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "username",
+				Name:      cg.Spec.Template.Spec.Auth.NetSpec.SASL.User.SecretKeyRef.Name,
+				Key:       cg.Spec.Template.Spec.Auth.NetSpec.SASL.User.SecretKeyRef.Key,
+			}
+			password := kedav1alpha1.AuthSecretTargetRef{
+				Parameter: "password",
+				Name:      cg.Spec.Template.Spec.Auth.NetSpec.SASL.Password.SecretKeyRef.Name,
+				Key:       cg.Spec.Template.Spec.Auth.NetSpec.SASL.Password.SecretKeyRef.Key,
+			}
+
+			secretTargetRefs = append(secretTargetRefs, sasl, username, password)
+			triggerAuth.Spec.SecretTargetRef = secretTargetRefs
+		}
+
+		if cg.Spec.Template.Spec.Auth.NetSpec.TLS.Enable {
+			secret.StringData["tls"] = "enable"
+			tls := kedav1alpha1.AuthSecretTargetRef{Parameter: "tls", Name: secret.Name, Key: "tls"}
+			secretTargetRefs = append(secretTargetRefs, tls)
+
+			if cg.Spec.Template.Spec.Auth.NetSpec.TLS.CACert.SecretKeyRef != nil {
+				ca := kedav1alpha1.AuthSecretTargetRef{
+					Parameter: "ca",
+					Name:      cg.Spec.Template.Spec.Auth.NetSpec.TLS.CACert.SecretKeyRef.Name,
+					Key:       cg.Spec.Template.Spec.Auth.NetSpec.TLS.CACert.SecretKeyRef.Key,
+				}
+
+				secretTargetRefs = append(secretTargetRefs, ca)
+			}
+
+			if cg.Spec.Template.Spec.Auth.NetSpec.TLS.Cert.SecretKeyRef != nil {
+				cert := kedav1alpha1.AuthSecretTargetRef{
+					Parameter: "cert",
+					Name:      cg.Spec.Template.Spec.Auth.NetSpec.TLS.Cert.SecretKeyRef.Name,
+					Key:       cg.Spec.Template.Spec.Auth.NetSpec.TLS.Cert.SecretKeyRef.Key,
+				}
+				secretTargetRefs = append(secretTargetRefs, cert)
+			}
+
+			if cg.Spec.Template.Spec.Auth.NetSpec.TLS.Key.SecretKeyRef != nil {
+				key := kedav1alpha1.AuthSecretTargetRef{
+					Parameter: "key",
+					Name:      cg.Spec.Template.Spec.Auth.NetSpec.TLS.Key.SecretKeyRef.Name,
+					Key:       cg.Spec.Template.Spec.Auth.NetSpec.TLS.Key.SecretKeyRef.Key,
+				}
+				secretTargetRefs = append(secretTargetRefs, key)
+			}
+			triggerAuth.Spec.SecretTargetRef = secretTargetRefs
+		}
+	}
+
+	if cg.Spec.Template.Spec.Auth.AuthSpec != nil && cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name != "" {
+		host := kedav1alpha1.AuthSecretTargetRef{
+			Parameter: "host",
+			Name:      cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name,
+			Key:       "", //TODO: add key
+		}
+		secretTargetRefs = append(secretTargetRefs, host)
+		triggerAuth.Spec.SecretTargetRef = secretTargetRefs
+		return triggerAuth, nil, nil
+	}
+
+	return triggerAuth, &secret, nil
 }
 
 // scaleObjectCreated makes a new reconciler event with event type Normal, and

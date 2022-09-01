@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
+	"knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
@@ -66,6 +67,15 @@ var (
 	OwnerAsChannelLabel = map[string]string{
 		kafkainternals.UserFacingResourceLabelSelector: "kafkachannel",
 		kafkainternals.KafkaChannelNameLabel:           ChannelName,
+	}
+
+	ConsumerGroupAnnotations = map[string]string{
+		keda.AutoscalingClassAnnotation:               keda.KEDA,
+		keda.AutoscalingMinScaleAnnotation:            "0",
+		keda.AutoscalingMaxScaleAnnotation:            "5",
+		keda.KedaAutoscalingPollingIntervalAnnotation: "30",
+		keda.KedaAutoscalingCooldownPeriodAnnotation:  "300",
+		keda.KedaAutoscalingKafkaLagThreshold:         "10",
 	}
 )
 

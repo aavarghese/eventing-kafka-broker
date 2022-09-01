@@ -449,7 +449,7 @@ func (r Reconciler) reconcileKeda(ctx context.Context, cg *kafkainternals.Consum
 		return nil
 	}
 
-	if !hasAuthSpecAuthConfig(cg.Spec.Template.Spec.Auth) && hasNetSpecAuthConfig(cg.Spec.Template.Spec.Auth) {
+	if hasAuthSpecAuthConfig(cg.Spec.Template.Spec.Auth) || hasNetSpecAuthConfig(cg.Spec.Template.Spec.Auth) {
 		return r.reconcileKedaObjects(ctx, cg)
 	}
 	return nil
@@ -458,16 +458,14 @@ func (r Reconciler) reconcileKeda(ctx context.Context, cg *kafkainternals.Consum
 func (r Reconciler) reconcileKedaObjects(ctx context.Context, cg *kafkainternals.ConsumerGroup) error {
 	var triggerAuthentication *kedav1alpha1.TriggerAuthentication
 	var secret *corev1.Secret
-	if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable || cg.Spec.Template.Spec.Auth.NetSpec.TLS.Enable {
-		saslType, err := r.retrieveSaslTypeIfPresent(ctx, cg)
-		if err != nil {
-			return err
-		}
+	saslType, err := r.retrieveSaslTypeIfPresent(ctx, cg)
+	if err != nil {
+		return err
+	}
 
-		triggerAuthentication, secret, err = reckafka.GenerateTriggerAuthentication(cg, saslType)
-		if err != nil {
-			return err
-		}
+	triggerAuthentication, secret, err = reckafka.GenerateTriggerAuthentication(cg, saslType)
+	if err != nil {
+		return err
 	}
 
 	triggers, err := reckafka.GenerateScaleTriggers(cg, triggerAuthentication)
@@ -506,7 +504,7 @@ func (r Reconciler) reconcileKedaObjects(ctx context.Context, cg *kafkainternals
 }
 
 func (r *Reconciler) retrieveSaslTypeIfPresent(ctx context.Context, cg *kafkainternals.ConsumerGroup) (*string, error) {
-	if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable {
+	if hasNetSpecAuthConfig(cg.Spec.Template.Spec.Auth) && cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable {
 		if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Type.SecretKeyRef != nil {
 			secretKeyRefName := cg.Spec.Template.Spec.Auth.NetSpec.SASL.Type.SecretKeyRef.Name
 			secretKeyRefKey := cg.Spec.Template.Spec.Auth.NetSpec.SASL.Type.SecretKeyRef.Key

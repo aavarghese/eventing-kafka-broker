@@ -28,8 +28,6 @@ import (
 
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/contract"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/base"
-
-	"knative.dev/eventing-autoscaler-keda/pkg/reconciler/keda"
 )
 
 const (
@@ -42,15 +40,6 @@ const (
 
 var (
 	SourceTopics = []string{"t1", "t2"}
-
-	SourceAnnotations = map[string]string{
-		keda.AutoscalingClassAnnotation:               keda.KEDA,
-		keda.AutoscalingMinScaleAnnotation:            "0",
-		keda.AutoscalingMaxScaleAnnotation:            "5",
-		keda.KedaAutoscalingPollingIntervalAnnotation: "30",
-		keda.KedaAutoscalingCooldownPeriodAnnotation:  "300",
-		keda.KedaAutoscalingKafkaLagThreshold:         "10",
-	}
 )
 
 func NewSource(options ...KRShapedOption) *sources.KafkaSource {
@@ -59,7 +48,7 @@ func NewSource(options ...KRShapedOption) *sources.KafkaSource {
 			Namespace:   SourceNamespace,
 			Name:        SourceName,
 			UID:         SourceUUID,
-			Annotations: SourceAnnotations,
+			Annotations: ConsumerGroupAnnotations,
 		},
 		Spec: sources.KafkaSourceSpec{
 			KafkaAuthSpec: v1beta1.KafkaAuthSpec{

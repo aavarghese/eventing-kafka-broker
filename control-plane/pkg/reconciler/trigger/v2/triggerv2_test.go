@@ -42,6 +42,7 @@ import (
 
 	. "knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/testing"
 
+	kedaclient "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/client/fake"
 	fakeconsumergroupinformer "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/client/fake"
 )
 
@@ -91,9 +92,10 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 						ConsumerFilters(NewConsumerSpecFilters()),
@@ -131,9 +133,10 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(
 							internals.Unordered,
@@ -175,9 +178,10 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerFilters(NewConsumerSpecFilters()),
@@ -215,9 +219,10 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 						ConsumerFilters(NewConsumerSpecFilters()),
@@ -282,6 +287,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupReady,
 				),
 			},
@@ -295,10 +301,12 @@ func TestReconcileKind(t *testing.T) {
 						WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 						WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 						WithConsumerGroupLabels(ConsumerTriggerLabel),
+						WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 						ConsumerGroupConsumerSpec(NewConsumerSpec(
-							ConsumerTopics(),
+							ConsumerTopics(BrokerTopics[0]),
 							ConsumerConfigs(
 								ConsumerGroupIdConfig(TriggerUUID),
+								ConsumerBootstrapServersConfig(""),
 							),
 							ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 							ConsumerFilters(NewConsumerSpecFilters()),
@@ -333,6 +341,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 				),
 			},
 			Key:         testKey,
@@ -345,10 +354,12 @@ func TestReconcileKind(t *testing.T) {
 						WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 						WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 						WithConsumerGroupLabels(ConsumerTriggerLabel),
+						WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 						ConsumerGroupConsumerSpec(NewConsumerSpec(
-							ConsumerTopics(),
+							ConsumerTopics(BrokerTopics[0]),
 							ConsumerConfigs(
 								ConsumerGroupIdConfig(TriggerUUID),
+								ConsumerBootstrapServersConfig(""),
 							),
 							ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 							ConsumerFilters(NewConsumerSpecFilters()),
@@ -382,10 +393,12 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 						ConsumerFilters(NewConsumerSpecFilters()),
@@ -420,10 +433,12 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 						ConsumerFilters(NewConsumerSpecFilters()),
@@ -457,10 +472,12 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 						ConsumerFilters(NewConsumerSpecFilters()),
@@ -495,10 +512,12 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(newTrigger())),
 					WithConsumerGroupMetaLabels(OwnerAsTriggerLabel),
 					WithConsumerGroupLabels(ConsumerTriggerLabel),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
-						ConsumerTopics(),
+						ConsumerTopics(BrokerTopics[0]),
 						ConsumerConfigs(
 							ConsumerGroupIdConfig(TriggerUUID),
+							ConsumerBootstrapServersConfig(""),
 						),
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Unordered)),
 						ConsumerFilters(NewConsumerSpecFilters()),
@@ -601,7 +620,7 @@ func TestReconcileKind(t *testing.T) {
 	}
 
 	table.Test(t, NewFactory(nil, func(ctx context.Context, listers *Listers, env *config.Env, row *TableRow) controller.Reconciler {
-
+		ctx, _ = kedaclient.With(ctx)
 		logger := logging.FromContext(ctx)
 
 		reconciler := &Reconciler{
@@ -610,6 +629,7 @@ func TestReconcileKind(t *testing.T) {
 			Env:                 env,
 			ConsumerGroupLister: listers.GetConsumerGroupLister(),
 			InternalsClient:     fakeconsumergroupinformer.Get(ctx),
+			KedaClient:          kedaclient.Get(ctx),
 		}
 
 		return triggerreconciler.NewReconciler(

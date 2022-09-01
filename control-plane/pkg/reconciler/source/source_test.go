@@ -103,7 +103,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -149,7 +149,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -193,7 +193,7 @@ func TestReconcileKind(t *testing.T) {
 						Namespace:   SourceNamespace,
 						Name:        SourceName,
 						UID:         SourceUUID,
-						Annotations: SourceAnnotations,
+						Annotations: ConsumerGroupAnnotations,
 					},
 					Spec: sources.KafkaSourceSpec{
 						KafkaAuthSpec: v1beta1.KafkaAuthSpec{
@@ -247,7 +247,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -323,7 +323,7 @@ func TestReconcileKind(t *testing.T) {
 						Namespace:   SourceNamespace,
 						Name:        SourceName,
 						UID:         SourceUUID,
-						Annotations: SourceAnnotations,
+						Annotations: ConsumerGroupAnnotations,
 					},
 					Spec: sources.KafkaSourceSpec{
 						KafkaAuthSpec: v1beta1.KafkaAuthSpec{
@@ -369,7 +369,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -444,7 +444,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -496,7 +496,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -529,7 +529,7 @@ func TestReconcileKind(t *testing.T) {
 						WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 						WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 						WithConsumerGroupLabels(ConsumerSourceLabel),
-						WithConsumerGroupAnnotations(SourceAnnotations),
+						WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 						ConsumerGroupConsumerSpec(NewConsumerSpec(
 							ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 							ConsumerConfigs(
@@ -575,7 +575,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupReplicas(1),
 					ConsumerGroupReady,
 				),
@@ -589,7 +589,7 @@ func TestReconcileKind(t *testing.T) {
 						WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 						WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 						WithConsumerGroupLabels(ConsumerSourceLabel),
-						WithConsumerGroupAnnotations(SourceAnnotations),
+						WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 						ConsumerGroupConsumerSpec(NewConsumerSpec(
 							ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 							ConsumerConfigs(
@@ -634,7 +634,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupReplicas(1),
 				),
 			},
@@ -648,7 +648,7 @@ func TestReconcileKind(t *testing.T) {
 						WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 						WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 						WithConsumerGroupLabels(ConsumerSourceLabel),
-						WithConsumerGroupAnnotations(SourceAnnotations),
+						WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 						ConsumerGroupConsumerSpec(NewConsumerSpec(
 							ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 							ConsumerConfigs(
@@ -692,7 +692,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -737,7 +737,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -782,7 +782,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
@@ -828,7 +828,7 @@ func TestReconcileKind(t *testing.T) {
 					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewSource())),
 					WithConsumerGroupMetaLabels(OwnerAsSourceLabel),
 					WithConsumerGroupLabels(ConsumerSourceLabel),
-					WithConsumerGroupAnnotations(SourceAnnotations),
+					WithConsumerGroupAnnotations(ConsumerGroupAnnotations),
 					ConsumerGroupConsumerSpec(NewConsumerSpec(
 						ConsumerTopics(SourceTopics[0], SourceTopics[1]),
 						ConsumerConfigs(
