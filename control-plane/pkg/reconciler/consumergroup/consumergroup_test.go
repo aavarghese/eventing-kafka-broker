@@ -759,7 +759,6 @@ func TestReconcileKind(t *testing.T) {
 				}),
 			},
 			WantCreates: []runtime.Object{
-				NewKedaSecret(ConsumerGroupNamespace, "test-cg"),
 				NewConsumer(1,
 					ConsumerSpec(NewConsumerSpec(
 						ConsumerTopics("t1", "t2"),

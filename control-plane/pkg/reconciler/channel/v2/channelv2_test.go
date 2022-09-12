@@ -448,6 +448,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 					)),
+					ConsumerGroupReplicas(1),
 				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{
@@ -515,6 +516,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 					)),
+					ConsumerGroupReplicas(1),
 				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{
@@ -582,6 +584,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 					)),
+					ConsumerGroupReplicas(1),
 				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{
@@ -673,6 +676,7 @@ func TestReconcileKind(t *testing.T) {
 							ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 							ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 						)),
+						ConsumerGroupReplicas(1),
 						ConsumerGroupReady,
 					),
 				},
@@ -721,6 +725,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 					)),
+					ConsumerGroupReplicas(1),
 					WithConsumerGroupFailed("failed to reconcile consumer group,", "internal error"),
 				),
 			},
@@ -795,6 +800,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 					)),
+					ConsumerGroupReplicas(1),
 				),
 				NewConsumerGroup(
 					WithConsumerGroupName(Subscription2UUID),
@@ -811,6 +817,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription2URI)),
 					)),
+					ConsumerGroupReplicas(1),
 				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{
@@ -896,6 +903,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 					)),
+					ConsumerGroupReplicas(1),
 				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{
@@ -1100,7 +1108,7 @@ func TestReconcileKind(t *testing.T) {
 			},
 		},
 		{
-			Name: "Reconciled normal - with single fresh subscriber - with auth - PlainText",
+			Name: "Reconciled normal - with single fresh subscriber - with auth - SSL",
 			Objects: []runtime.Object{
 				NewChannel(WithSubscribers(Subscriber1(WithFreshSubscriber))),
 				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
@@ -1109,7 +1117,7 @@ func TestReconcileKind(t *testing.T) {
 					security.AuthSecretNamespaceKey:    "ns-1",
 				}),
 				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
-				NewSSLSecret("ns-1", "secret-1"),
+				NewLegacySSLSecret("ns-1", "secret-1"),
 				NewConsumerGroup(
 					WithConsumerGroupName(Subscription1UUID),
 					WithConsumerGroupNamespace(ChannelNamespace),
@@ -1134,6 +1142,7 @@ func TestReconcileKind(t *testing.T) {
 							},
 						}),
 					)),
+					ConsumerGroupReplicas(1),
 					ConsumerGroupReady,
 				),
 			},
@@ -1150,12 +1159,223 @@ func TestReconcileKind(t *testing.T) {
 							Topics:           []string{ChannelTopic()},
 							BootstrapServers: ChannelBootstrapServers,
 							Reference:        ChannelReference(),
-							Auth: &contract.Resource_AuthSecret{
-								AuthSecret: &contract.Reference{
-									Uuid:      SecretUUID,
-									Namespace: "ns-1",
-									Name:      "secret-1",
-									Version:   SecretResourceVersion,
+							Auth: &contract.Resource_MultiAuthSecret{
+								MultiAuthSecret: &contract.MultiSecretReference{
+									Protocol: contract.Protocol_SSL,
+									References: []*contract.SecretReference{{
+										Reference: &contract.Reference{
+											Uuid:      SecretUUID,
+											Namespace: "ns-1",
+											Name:      "secret-1",
+											Version:   SecretResourceVersion,
+										},
+										KeyFieldReferences: []*contract.KeyFieldReference{
+											{SecretKey: "user.key", Field: contract.SecretField_USER_KEY},
+											{SecretKey: "user.crt", Field: contract.SecretField_USER_CRT},
+											{SecretKey: "ca.crt", Field: contract.SecretField_CA_CRT},
+										},
+									}},
+								},
+							},
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						WithSubscribers(Subscriber1(WithFreshSubscriber)),
+						StatusProbeSucceeded,
+						StatusChannelSubscribers(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with single fresh subscriber - with auth - SASL SSL",
+			Objects: []runtime.Object{
+				NewChannel(WithSubscribers(Subscriber1(WithFreshSubscriber))),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+					security.AuthSecretNameKey:         "secret-1",
+					security.AuthSecretNamespaceKey:    "ns-1",
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewLegacySASLSSLSecret("ns-1", "secret-1"),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+						ConsumerAuth(&internalscg.Auth{
+							AuthSpec: &v1alpha1.Auth{
+								Secret: &v1alpha1.Secret{
+									Ref: &v1alpha1.SecretReference{
+										Name: "secret-1",
+									},
+								},
+							},
+						}),
+					)),
+					ConsumerGroupReplicas(1),
+					ConsumerGroupReady,
+				),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Auth: &contract.Resource_MultiAuthSecret{
+								MultiAuthSecret: &contract.MultiSecretReference{
+									Protocol: contract.Protocol_SASL_SSL,
+									References: []*contract.SecretReference{{
+										Reference: &contract.Reference{
+											Uuid:      SecretUUID,
+											Namespace: "ns-1",
+											Name:      "secret-1",
+											Version:   SecretResourceVersion,
+										},
+										KeyFieldReferences: []*contract.KeyFieldReference{
+											{SecretKey: "user.key", Field: contract.SecretField_USER_KEY},
+											{SecretKey: "user.crt", Field: contract.SecretField_USER_CRT},
+											{SecretKey: "ca.crt", Field: contract.SecretField_CA_CRT},
+											{SecretKey: "password", Field: contract.SecretField_PASSWORD},
+											{SecretKey: "username", Field: contract.SecretField_USER},
+											{SecretKey: "saslType", Field: contract.SecretField_SASL_MECHANISM},
+										},
+									}},
+								},
+							},
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						WithSubscribers(Subscriber1(WithFreshSubscriber)),
+						StatusProbeSucceeded,
+						StatusChannelSubscribers(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with single fresh subscriber - with auth - SASL",
+			Objects: []runtime.Object{
+				NewChannel(WithSubscribers(Subscriber1(WithFreshSubscriber))),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+					security.AuthSecretNameKey:         "secret-1",
+					security.AuthSecretNamespaceKey:    "ns-1",
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewLegacySASLSecret("ns-1", "secret-1"),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+						ConsumerAuth(&internalscg.Auth{
+							AuthSpec: &v1alpha1.Auth{
+								Secret: &v1alpha1.Secret{
+									Ref: &v1alpha1.SecretReference{
+										Name: "secret-1",
+									},
+								},
+							},
+						}),
+					)),
+					ConsumerGroupReplicas(1),
+					ConsumerGroupReady,
+				),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Auth: &contract.Resource_MultiAuthSecret{
+								MultiAuthSecret: &contract.MultiSecretReference{
+									Protocol: contract.Protocol_SASL_PLAINTEXT,
+									References: []*contract.SecretReference{{
+										Reference: &contract.Reference{
+											Uuid:      SecretUUID,
+											Namespace: "ns-1",
+											Name:      "secret-1",
+											Version:   SecretResourceVersion,
+										},
+										KeyFieldReferences: []*contract.KeyFieldReference{
+											{SecretKey: "password", Field: contract.SecretField_PASSWORD},
+											{SecretKey: "username", Field: contract.SecretField_USER},
+											{SecretKey: "saslType", Field: contract.SecretField_SASL_MECHANISM},
+										},
+									}},
 								},
 							},
 							Ingress: &contract.Ingress{
@@ -1218,6 +1438,7 @@ func TestReconcileKind(t *testing.T) {
 						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
 						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
 					)),
+					ConsumerGroupReplicas(1),
 				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{

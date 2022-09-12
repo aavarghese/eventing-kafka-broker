@@ -32,6 +32,7 @@ import (
 	eventingclientset "knative.dev/eventing/pkg/client/clientset/versioned"
 	eventinglisters "knative.dev/eventing/pkg/client/listers/eventing/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 
 	internals "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/internals/kafka/eventing"
@@ -181,7 +182,7 @@ func (r Reconciler) reconcileConsumerGroup(ctx context.Context, broker *eventing
 		},
 	}
 
-	//expectedCg.Spec.Replicas = ptr.Int32(2) //to be removed
+	expectedCg.Spec.Replicas = ptr.Int32(1) //Must be set for Scaled Object ref
 
 	// TODO: make keda annotation values configurable and maybe unexposed
 	expectedCg.Annotations = kedafunc.SetAutoscalingAnnotations(broker.Annotations)

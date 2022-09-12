@@ -22,4 +22,8 @@ metadata:
   labels:
     kafka.eventing.knative.dev/release: devel
 data:
-  bootstrap.servers: "my-cluster-kafka-bootstrap.kafka:9092"
+  bootstrap.servers: "kafka-0.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093,kafka-2.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093,kafka-1.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093"
+  auth.secret.ref.namespace: default
+  auth.secret.ref.name: kafka-secret-channel
+  default.topic.partitions: "10"
+  default.topic.replication.factor: "3"

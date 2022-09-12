@@ -37,6 +37,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
 	"knative.dev/pkg/network"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/resolver"
 
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
@@ -128,7 +129,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(err)
 	}
-	logger.Debug("configmap read", zap.Any("configmap", channelConfigMap))
+	logger.Info("configmap read", zap.Any("configmap", channelConfigMap))
 
 	if err := r.TrackConfigMap(channelConfigMap, channel); err != nil {
 		return fmt.Errorf("failed to track broker config: %w", err)
@@ -139,7 +140,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(err)
 	}
-	logger.Debug("topic config resolved", zap.Any("config", topicConfig))
+	logger.Info("topic config resolved", zap.Any("config", topicConfig))
 	statusConditionManager.ConfigResolved()
 
 	// get the secret to access Kafka
@@ -148,7 +149,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 		return fmt.Errorf("failed to get secret: %w", err)
 	}
 	if secret != nil {
-		logger.Debug("Secret reference",
+		logger.Info("Secret reference",
 			zap.String("apiVersion", secret.APIVersion),
 			zap.String("name", secret.Name),
 			zap.String("namespace", secret.Namespace),
@@ -156,8 +157,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 		)
 	}
 
+	authContext, err := security.ResolveAuthContextFromLegacySecret(secret)
+	if err != nil {
+		return statusConditionManager.FailedToResolveConfig(fmt.Errorf("failed to resolve auth context: %w", err))
+	}
+
 	// get security option for Sarama with secret info in it
-	saramaSecurityOption := security.NewSaramaSecurityOptionFromSecret(secret)
+	saramaSecurityOption := security.NewSaramaSecurityOptionFromSecret(authContext.VirtualSecret)
 
 	if err := r.TrackSecret(secret, channel); err != nil {
 		return fmt.Errorf("failed to track secret: %w", err)
@@ -166,6 +172,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	topicName := kafka.ChannelTopic(TopicPrefix, channel)
 
 	kafkaClusterAdminSaramaConfig, err := kafka.GetSaramaConfig(saramaSecurityOption)
+	logger.Info("kafkaClusterAdminSaramaConfige",
+		zap.Any("kafkaClusterAdminSaramaConfig", kafkaClusterAdminSaramaConfig))
 	if err != nil {
 		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting cluster admin sarama config: %w", err))
 	}
@@ -174,8 +182,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	// That's because we want to make sure we initialize the offsets within the controller
 	// before dispatcher actually starts consuming messages.
 	kafkaClientSaramaConfig, err := kafka.GetSaramaConfig(saramaSecurityOption, kafka.DisableOffsetAutoCommitConfigOption)
+	logger.Info("kafkaClientSaramaConfig",
+		zap.Any("kafkaClientSaramaConfig", kafkaClientSaramaConfig))
 	if err != nil {
-		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting cluster admin sarama config: %w", err))
+		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting client sarama config: %w", err))
 	}
 
 	kafkaClusterAdminClient, err := r.NewKafkaClusterAdminClient(topicConfig.BootstrapServers, kafkaClusterAdminSaramaConfig)
@@ -195,7 +205,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToCreateTopic(topic, err)
 	}
-	logger.Debug("Topic created", zap.Any("topic", topic))
+	logger.Info("Topic created", zap.Any("topic", topic))
 	statusConditionManager.TopicReady(topic)
 
 	// Get data plane config map.
@@ -203,17 +213,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(err)
 	}
-	logger.Debug("Got contract config map")
+	logger.Info("Got contract config map")
 
 	// Get data plane config data.
 	ct, err := r.GetDataPlaneConfigMapData(logger, contractConfigMap)
 	if err != nil || ct == nil {
 		return statusConditionManager.FailedToGetDataFromConfigMap(err)
 	}
-	logger.Debug("Got contract data from config map", zap.Any(base.ContractLogKey, ct))
+	logger.Info("Got contract data from config map", zap.Any(base.ContractLogKey, ct))
 
 	// Get resource configuration
-	channelResource, err := r.getChannelContractResource(ctx, topic, channel, secret, topicConfig)
+	channelResource, err := r.getChannelContractResource(ctx, topic, channel, authContext, topicConfig)
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(err)
 	}
@@ -300,7 +310,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 		},
 	}
 
-	logger.Debug("Going to probe address to check ingress readiness for the channel.", zap.Any("proberAddressable", proberAddressable))
+	logger.Info("Going to probe address to check ingress readiness for the channel.", zap.Any("proberAddressable", proberAddressable))
 	if status := r.Prober.Probe(ctx, proberAddressable, prober.StatusReady); status != prober.StatusReady {
 		logger.Debug("Ingress is not ready for the channel. Going to requeue.", zap.Any("proberAddressable", proberAddressable))
 		statusConditionManager.ProbesStatusNotReady(status)
@@ -440,8 +450,13 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, channel *messagingv1beta1
 		)
 	}
 
+	authContext, err := security.ResolveAuthContextFromLegacySecret(secret)
+	if err != nil {
+		return fmt.Errorf("failed to resolve auth context: %w", err)
+	}
+
 	// get security option for Sarama with secret info in it
-	saramaSecurityOption := security.NewSaramaSecurityOptionFromSecret(secret)
+	saramaSecurityOption := security.NewSaramaSecurityOptionFromSecret(authContext.VirtualSecret)
 
 	saramaConfig, err := kafka.GetSaramaConfig(saramaSecurityOption)
 	if err != nil {
@@ -583,6 +598,8 @@ func (r Reconciler) reconcileConsumerGroup(ctx context.Context, channel *messagi
 		},
 	}
 
+	expectedCg.Spec.Replicas = ptr.Int32(1) //Must be set for Scaled Object ref
+
 	// TODO: make keda annotation values configurable and maybe unexposed
 	expectedCg.Annotations = kedafunc.SetAutoscalingAnnotations(channel.Annotations)
 
@@ -631,7 +648,7 @@ func (r Reconciler) reconcileConsumerGroup(ctx context.Context, channel *messagi
 	return cg, nil
 }
 
-func (r *Reconciler) getChannelContractResource(ctx context.Context, topic string, channel *messagingv1beta1.KafkaChannel, secret *corev1.Secret, config *kafka.TopicConfig) (*contract.Resource, error) {
+func (r *Reconciler) getChannelContractResource(ctx context.Context, topic string, channel *messagingv1beta1.KafkaChannel, auth *security.NetSpecAuthContext, config *kafka.TopicConfig) (*contract.Resource, error) {
 	resource := &contract.Resource{
 		Uid:    string(channel.UID),
 		Topics: []string{topic},
@@ -646,14 +663,9 @@ func (r *Reconciler) getChannelContractResource(ctx context.Context, topic strin
 		},
 	}
 
-	if secret != nil {
-		resource.Auth = &contract.Resource_AuthSecret{
-			AuthSecret: &contract.Reference{
-				Uuid:      string(secret.UID),
-				Namespace: secret.Namespace,
-				Name:      secret.Name,
-				Version:   secret.ResourceVersion,
-			},
+	if auth != nil && auth.MultiSecretReference != nil {
+		resource.Auth = &contract.Resource_MultiAuthSecret{
+			MultiAuthSecret: auth.MultiSecretReference,
 		}
 	}
 
@@ -675,6 +687,7 @@ func (r *Reconciler) channelConfigMap() (*corev1.ConfigMap, error) {
 	// TODO: do we want to support namespaced channels? they're not supported at the moment.
 
 	namespace := r.DataPlaneNamespace
+	fmt.Printf("channelConfigMap namespace: %s, channelConfigMap name: %s", namespace, r.Env.GeneralConfigMapName)
 	cm, err := r.ConfigMapLister.ConfigMaps(namespace).Get(r.Env.GeneralConfigMapName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s: %w", namespace, r.Env.GeneralConfigMapName, err)
