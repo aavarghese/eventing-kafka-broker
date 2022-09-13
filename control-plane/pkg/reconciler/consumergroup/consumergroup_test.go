@@ -65,8 +65,10 @@ func (f SchedulerFunc) Schedule(vpod scheduler.VPod) ([]eventingduckv1alpha1.Pla
 const (
 	testSchedulerKey = "scheduler"
 
-	systemNamespace = "knative-eventing"
-	finalizerName   = "consumergroups.internal.kafka.eventing.knative.dev"
+	systemNamespace               = "knative-eventing"
+	finalizerName                 = "consumergroups.internal.kafka.eventing.knative.dev"
+	TestExpectedDataNumPartitions = "TestExpectedDataNumPartitions"
+	TestExpectedReplicationFactor = "TestExpectedReplicationFactor"
 )
 
 var finalizerUpdatedEvent = Eventf(
@@ -1541,6 +1543,11 @@ func TestReconcileKind(t *testing.T) {
 			NewKafkaClient: func(addrs []string, config *sarama.Config) (sarama.Client, error) {
 				return &kafkatesting.MockKafkaClient{}, nil
 			},
+			NewKafkaClusterAdminClient: func(_ []string, _ *sarama.Config) (sarama.ClusterAdmin, error) {
+				return &kafkatesting.MockKafkaClusterAdmin{
+					T: t,
+				}, nil
+			},
 			InitOffsetsFunc: func(ctx context.Context, kafkaClient sarama.Client, kafkaAdminClient sarama.ClusterAdmin, topics []string, consumerGroup string) (int32, error) {
 				return 1, nil
 			},
@@ -1762,6 +1769,9 @@ func TestFinalizeKind(t *testing.T) {
 			ConsumerLister:  listers.GetConsumerLister(),
 			InternalsClient: fakekafkainternalsclient.Get(ctx).InternalV1alpha1(),
 			SecretLister:    listers.GetSecretLister(),
+			NewKafkaClient: func(addrs []string, config *sarama.Config) (sarama.Client, error) {
+				return &kafkatesting.MockKafkaClient{}, nil
+			},
 			NewKafkaClusterAdminClient: func(_ []string, _ *sarama.Config) (sarama.ClusterAdmin, error) {
 				return &kafkatesting.MockKafkaClusterAdmin{
 					T: t,

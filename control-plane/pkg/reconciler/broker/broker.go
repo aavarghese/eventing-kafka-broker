@@ -128,10 +128,10 @@ func (r *Reconciler) reconcileKind(ctx context.Context, broker *eventing.Broker)
 
 	logger.Debug("Got contract config map")
 
-	if !r.IsReceiverRunning() || !r.IsDispatcherRunning() {
+	/*if !r.IsReceiverRunning() || !r.IsDispatcherRunning() {
 		return statusConditionManager.DataPlaneNotAvailable()
 	}
-	statusConditionManager.DataPlaneAvailable()
+	statusConditionManager.DataPlaneAvailable()*/
 
 	topicConfig, brokerConfig, err := r.topicConfig(logger, broker)
 	if err != nil {

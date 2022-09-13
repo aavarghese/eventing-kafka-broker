@@ -87,7 +87,33 @@ func GenerateScaleTriggers(cg *kafkainternals.ConsumerGroup, triggerAuthenticati
 func GenerateTriggerAuthentication(cg *kafkainternals.ConsumerGroup, saslType *string) (*kedav1alpha1.TriggerAuthentication, *corev1.Secret, error) {
 
 	secretTargetRefs := make([]kedav1alpha1.AuthSecretTargetRef, 0, 8)
-	var secret corev1.Secret
+
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cg.Name,
+			Namespace: cg.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*kmeta.NewControllerRef(cg),
+			},
+		},
+		Data:       make(map[string][]byte),
+		StringData: make(map[string]string),
+	}
+
+	if saslType != nil {
+		switch *saslType {
+		case "SCRAM-SHA-256":
+			secret.StringData["sasl"] = "scram_sha256"
+		case "SCRAM-SHA-512":
+			secret.StringData["sasl"] = "scram_sha512"
+		case "PLAIN":
+			secret.StringData["sasl"] = "plaintext"
+		default:
+			return nil, nil, fmt.Errorf("SASL type value %q is not supported", *saslType)
+		}
+	} else {
+		secret.StringData["sasl"] = "plaintext" //default
+	}
 
 	triggerAuth := &kedav1alpha1.TriggerAuthentication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -106,35 +132,8 @@ func GenerateTriggerAuthentication(cg *kafkainternals.ConsumerGroup, saslType *s
 	}
 
 	if cg.Spec.Template.Spec.Auth.NetSpec != nil {
-		secret = corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cg.Name,
-				Namespace: cg.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					*kmeta.NewControllerRef(cg),
-				},
-			},
-			Data:       make(map[string][]byte),
-			StringData: make(map[string]string),
-		}
 
 		if cg.Spec.Template.Spec.Auth.NetSpec.SASL.Enable {
-
-			if saslType != nil {
-				switch *saslType {
-				case "SCRAM-SHA-256":
-					secret.StringData["sasl"] = "scram_sha256"
-				case "SCRAM-SHA-512":
-					secret.StringData["sasl"] = "scram_sha512"
-				case "PLAIN":
-					secret.StringData["sasl"] = "plaintext"
-				default:
-					return nil, nil, fmt.Errorf("SASL type value %q is not supported", *saslType)
-				}
-			} else {
-				secret.StringData["sasl"] = "plaintext" //default
-			}
-
 			sasl := kedav1alpha1.AuthSecretTargetRef{Parameter: "sasl", Name: secret.Name, Key: "sasl"}
 			secretTargetRefs = append(secretTargetRefs, sasl)
 
@@ -158,15 +157,20 @@ func GenerateTriggerAuthentication(cg *kafkainternals.ConsumerGroup, saslType *s
 	}
 
 	if cg.Spec.Template.Spec.Auth.AuthSpec != nil && cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name != "" {
-		host := kedav1alpha1.AuthSecretTargetRef{
-			Parameter: "host", //TODO: parameter name?
-			Name:      cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name,
-			Key:       "", //TODO: key value?
-		}
-		secretTargetRefs = append(secretTargetRefs, host)
-		triggerAuth.Spec.SecretTargetRef = secretTargetRefs
+		sasl := kedav1alpha1.AuthSecretTargetRef{Parameter: "sasl", Name: cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name, Key: "sasl.mechanism"}
+		secretTargetRefs = append(secretTargetRefs, sasl)
 
-		return triggerAuth, nil, nil
+		secret.StringData["tls"] = "enable"
+		tls := kedav1alpha1.AuthSecretTargetRef{Parameter: "tls", Name: secret.Name, Key: "tls"}
+		secretTargetRefs = append(secretTargetRefs, tls)
+
+		username := kedav1alpha1.AuthSecretTargetRef{Parameter: "username", Name: cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name, Key: "user"}
+		secretTargetRefs = append(secretTargetRefs, username)
+
+		password := kedav1alpha1.AuthSecretTargetRef{Parameter: "password", Name: cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name, Key: "password"}
+		secretTargetRefs = append(secretTargetRefs, password)
+
+		triggerAuth.Spec.SecretTargetRef = secretTargetRefs
 	}
 
 	return triggerAuth, &secret, nil

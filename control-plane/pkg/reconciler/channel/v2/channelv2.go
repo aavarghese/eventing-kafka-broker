@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/util/retry"
 	"knative.dev/eventing-kafka/pkg/channel/consolidated/reconciler/controller/resources"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
@@ -115,6 +116,12 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta1.KafkaChannel) reconciler.Event {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return r.reconcileKind(ctx, channel)
+	})
+}
+
+func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta1.KafkaChannel) reconciler.Event {
 	logger := kafkalogging.CreateReconcileMethodLogger(ctx, channel)
 
 	statusConditionManager := base.StatusConditionManager{
@@ -158,6 +165,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	}
 
 	authContext, err := security.ResolveAuthContextFromLegacySecret(secret)
+	logger.Info("authContext", zap.Any("authContext", authContext))
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(fmt.Errorf("failed to resolve auth context: %w", err))
 	}
@@ -172,8 +180,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	topicName := kafka.ChannelTopic(TopicPrefix, channel)
 
 	kafkaClusterAdminSaramaConfig, err := kafka.GetSaramaConfig(saramaSecurityOption)
-	logger.Info("kafkaClusterAdminSaramaConfige",
-		zap.Any("kafkaClusterAdminSaramaConfig", kafkaClusterAdminSaramaConfig))
+	logger.Info("kafkaClusterAdminSaramaConfig", zap.Any("kafkaClusterAdminSaramaConfig", kafkaClusterAdminSaramaConfig))
 	if err != nil {
 		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting cluster admin sarama config: %w", err))
 	}
@@ -182,8 +189,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	// That's because we want to make sure we initialize the offsets within the controller
 	// before dispatcher actually starts consuming messages.
 	kafkaClientSaramaConfig, err := kafka.GetSaramaConfig(saramaSecurityOption, kafka.DisableOffsetAutoCommitConfigOption)
-	logger.Info("kafkaClientSaramaConfig",
-		zap.Any("kafkaClientSaramaConfig", kafkaClientSaramaConfig))
+	logger.Info("kafkaClientSaramaConfig", zap.Any("kafkaClientSaramaConfig", kafkaClientSaramaConfig))
 	if err != nil {
 		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting client sarama config: %w", err))
 	}
@@ -302,6 +308,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, channel *messagingv1beta
 	}
 
 	address, _ := url.Parse(fmt.Sprintf("http://%s.%s.svc.%s", channelService.Name, channelService.Namespace, network.GetClusterDomainName()))
+	fmt.Println("Channel address", zap.Any("address", address))
 	proberAddressable := prober.Addressable{
 		Address: address,
 		ResourceKey: types.NamespacedName{
@@ -354,6 +361,12 @@ func (r *Reconciler) reconcileChannelService(ctx context.Context, channel *messa
 }
 
 func (r *Reconciler) FinalizeKind(ctx context.Context, channel *messagingv1beta1.KafkaChannel) reconciler.Event {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return r.finalizeKind(ctx, channel)
+	})
+}
+
+func (r *Reconciler) finalizeKind(ctx context.Context, channel *messagingv1beta1.KafkaChannel) reconciler.Event {
 	logger := kafkalogging.CreateFinalizeMethodLogger(ctx, channel)
 
 	// Get contract config map.
@@ -559,7 +572,6 @@ func (r *Reconciler) reconcileSubscribers(ctx context.Context, channel *messagin
 }
 
 func (r Reconciler) reconcileConsumerGroup(ctx context.Context, channel *messagingv1beta1.KafkaChannel, s *v1.SubscriberSpec, topicName string, bootstrapServers []string, secret *corev1.Secret) (*internalscg.ConsumerGroup, error) {
-	var secretName string
 
 	expectedCg := &internalscg.ConsumerGroup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -604,13 +616,11 @@ func (r Reconciler) reconcileConsumerGroup(ctx context.Context, channel *messagi
 	expectedCg.Annotations = kedafunc.SetAutoscalingAnnotations(channel.Annotations)
 
 	if secret != nil {
-		secretName = secret.Name
-		//secretNamespace := secret.Namespace
 		expectedCg.Spec.Template.Spec.Auth = &internalscg.Auth{
 			AuthSpec: &v1alpha1.Auth{
 				Secret: &v1alpha1.Secret{
 					Ref: &v1alpha1.SecretReference{
-						Name: secretName,
+						Name: secret.Name,
 					},
 				},
 			},
