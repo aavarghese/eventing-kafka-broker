@@ -211,7 +211,7 @@ function test_setup() {
 
   # create_sasl_secrets || fail_test "Failed to create SASL secrets"
   # create_tls_secrets || fail_test "Failed to create TLS secrets"
-  setup_kafka_channel_auth || fail_test "Failed to apply channel auth configuration ${EVENTING_KAFKA_BROKER_CHANNEL_AUTH_SCENARIO}"
+  # setup_kafka_channel_auth || fail_test "Failed to apply channel auth configuration ${EVENTING_KAFKA_BROKER_CHANNEL_AUTH_SCENARIO}"
 
   kubectl rollout restart statefulset -n knative-eventing kafka-source-dispatcher
   kubectl rollout restart deployment -n knative-eventing kafka-broker-receiver
