@@ -15,22 +15,26 @@
 # limitations under the License.
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: kafka-channel-receiver
+  name: kafka-channel-dispatcher
   namespace: knative-eventing
   labels:
-    app: kafka-channel-receiver
+    app: kafka-channel-dispatcher
     kafka.eventing.knative.dev/release: devel
 spec:
+  replicas: 0
+  serviceName: kafka-channel-dispatcher
+  podManagementPolicy: "Parallel"
   selector:
     matchLabels:
-      app: kafka-channel-receiver
+      app: kafka-channel-dispatcher
   template:
     metadata:
-      name: kafka-channel-receiver
+      name: kafka-channel-dispatcher
       labels:
-        app: kafka-channel-receiver
+        app: kafka-channel-dispatcher
+        app.kubernetes.io/component: kafka-dispatcher
         kafka.eventing.knative.dev/release: devel
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes and zones.
@@ -40,22 +44,22 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: kafka-channel-receiver
+              app: kafka-channel-dispatcher
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app: kafka-channel-receiver
+                    app: kafka-channel-dispatcher
                 topologyKey: kubernetes.io/hostname
               weight: 100
       serviceAccountName: knative-kafka-channel-data-plane
       securityContext:
         runAsNonRoot: true
       containers:
-        - name: kafka-channel-receiver
-          image: ${KNATIVE_KAFKA_RECEIVER_IMAGE}
+        - name: kafka-channel-dispatcher
+          image: ${KNATIVE_KAFKA_DISPATCHER_IMAGE}
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - mountPath: /etc/config
@@ -63,6 +67,9 @@ spec:
               readOnly: true
             - mountPath: /etc/channels-subscriptions
               name: kafka-channel-channels-subscriptions
+              readOnly: true
+            - mountPath: /etc/contract-resources
+              name: contract-resources
               readOnly: true
             - mountPath: /tmp
               name: cache
@@ -76,28 +83,27 @@ spec:
             - containerPort: 9090
               name: http-metrics
               protocol: TCP
-            - containerPort: 8080
-              name: http
-              protocol: TCP
           env:
             - name: SERVICE_NAME
-              value: "kafka-channel-receiver"
+              value: "kafka-channel-dispatcher"
             - name: SERVICE_NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: INGRESS_PORT
-              value: "8080"
             - name: PRODUCER_CONFIG_FILE_PATH
               value: /etc/config/config-kafka-channel-producer.properties
-            - name: HTTPSERVER_CONFIG_FILE_PATH
-              value: /etc/config/config-kafka-channel-httpserver.properties
+            - name: CONSUMER_CONFIG_FILE_PATH
+              value: /etc/config/config-kafka-channel-consumer.properties
+            - name: WEBCLIENT_CONFIG_FILE_PATH
+              value: /etc/config/config-kafka-channel-webclient.properties
             - name: DATA_PLANE_CONFIG_FILE_PATH
               value: /etc/channels-subscriptions/data
-            - name: LIVENESS_PROBE_PATH
-              value: /healthz
-            - name: READINESS_PROBE_PATH
-              value: /readyz
+            - name: EGRESSES_INITIAL_CAPACITY
+              value: "20"
+            - name: INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
             - name: METRICS_PATH
               value: /metrics
             - name: METRICS_PORT
@@ -115,21 +121,21 @@ spec:
             - name: WAIT_STARTUP_SECONDS
               value: "8"
             - name: JAVA_TOOL_OPTIONS
-              value: "-XX:+CrashOnOutOfMemoryError"
-<<<<<<< HEAD
+              value: "-XX:+CrashOnOutOfMemoryError -XX:InitialRAMPercentage=70.0 -XX:MinRAMPercentage=70.0 -XX:MaxRAMPercentage=70.0"
+
           resources:
             requests:
-              cpu: 200m
-              memory: 300Mi
-=======
-          # TODO set resources (limits and requests)
->>>>>>> 2cf188bae (Authentication fixes with legacy secrets, staTefulset missing volume, using subscription annotations)
+              cpu: 1000m
+              # 600Mi for virtual replicas + 100Mi overhead
+              memory: 700Mi
+            limits:
+              cpu: 2000m
+              memory: 1000Mi
+
           livenessProbe:
             failureThreshold: 3
-            httpGet:
-              port: 8080
-              path: /healthz
-              scheme: HTTP
+            tcpSocket:
+              port: 9090
             initialDelaySeconds: 10
             periodSeconds: 3
             successThreshold: 1
@@ -137,8 +143,8 @@ spec:
           readinessProbe:
             failureThreshold: 3
             httpGet:
-              port: 8080
-              path: /readyz
+              port: 9090
+              path: /metrics
               scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 3
@@ -151,12 +157,12 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
       volumes:
-        - name: kafka-channel-channels-subscriptions
-          configMap:
-            name: kafka-channel-channels-subscriptions
         - name: config-kafka-channel-data-plane
           configMap:
             name: config-kafka-channel-data-plane
+        - name: kafka-channel-channels-subscriptions
+          configMap:
+            name: kafka-channel-channels-subscriptions
         - name: cache
           emptyDir: { }
         - name: kafka-channel-config-logging
@@ -166,30 +172,6 @@ spec:
           configMap:
             name: config-tracing
       restartPolicy: Always
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: kafka-channel-ingress
-  namespace: knative-eventing
-  labels:
-    app: kafka-channel-receiver
-    kafka.eventing.knative.dev/release: devel
-spec:
-  selector:
-    app: kafka-channel-receiver
-  ports:
-    - name: http
-      port: 80
-      protocol: TCP
-      targetPort: 8080
-    - name: http-container
-      port: 8080
-      protocol: TCP
-      targetPort: 8080
-    - name: http-metrics
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
----
+      dnsConfig:
+        options:
+          - name: single-request-reopen

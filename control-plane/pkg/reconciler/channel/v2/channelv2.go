@@ -44,6 +44,7 @@ import (
 	messagingv1beta1 "knative.dev/eventing-kafka/pkg/apis/messaging/v1beta1"
 	"knative.dev/eventing-kafka/pkg/common/constants"
 	v1 "knative.dev/eventing/pkg/apis/duck/v1"
+	messaging "knative.dev/eventing/pkg/apis/messaging/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
@@ -69,6 +70,7 @@ import (
 	kafkalogging "knative.dev/eventing-kafka-broker/control-plane/pkg/logging"
 
 	kedafunc "knative.dev/eventing-kafka-broker/control-plane/pkg/keda"
+	messaginglisters "knative.dev/eventing/pkg/client/listers/messaging/v1"
 )
 
 const (
@@ -103,8 +105,9 @@ type Reconciler struct {
 	// mock the function used during the reconciliation loop.
 	NewKafkaClient kafka.NewClientFunc
 
-	ConfigMapLister corelisters.ConfigMapLister
-	ServiceLister   corelisters.ServiceLister
+	ConfigMapLister    corelisters.ConfigMapLister
+	ServiceLister      corelisters.ServiceLister
+	SubscriptionLister messaginglisters.SubscriptionLister
 
 	Prober prober.Prober
 
@@ -136,7 +139,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(err)
 	}
-	logger.Info("configmap read", zap.Any("configmap", channelConfigMap))
+	logger.Debug("configmap read", zap.Any("configmap", channelConfigMap))
 
 	if err := r.TrackConfigMap(channelConfigMap, channel); err != nil {
 		return fmt.Errorf("failed to track broker config: %w", err)
@@ -147,7 +150,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(err)
 	}
-	logger.Info("topic config resolved", zap.Any("config", topicConfig))
+	logger.Debug("topic config resolved", zap.Any("config", topicConfig))
 	statusConditionManager.ConfigResolved()
 
 	// get the secret to access Kafka
@@ -156,7 +159,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 		return fmt.Errorf("failed to get secret: %w", err)
 	}
 	if secret != nil {
-		logger.Info("Secret reference",
+		logger.Debug("Secret reference",
 			zap.String("apiVersion", secret.APIVersion),
 			zap.String("name", secret.Name),
 			zap.String("namespace", secret.Namespace),
@@ -179,7 +182,6 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 	topicName := kafka.ChannelTopic(TopicPrefix, channel)
 
 	kafkaClusterAdminSaramaConfig, err := kafka.GetSaramaConfig(saramaSecurityOption)
-	logger.Info("kafkaClusterAdminSaramaConfig", zap.Any("kafkaClusterAdminSaramaConfig", kafkaClusterAdminSaramaConfig))
 	if err != nil {
 		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting cluster admin sarama config: %w", err))
 	}
@@ -195,7 +197,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToCreateTopic(topic, err)
 	}
-	logger.Info("Topic created", zap.Any("topic", topic))
+	logger.Debug("Topic created", zap.Any("topic", topic))
 	statusConditionManager.TopicReady(topic)
 
 	// Get data plane config map.
@@ -203,14 +205,14 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(err)
 	}
-	logger.Info("Got contract config map")
+	logger.Debug("Got contract config map")
 
 	// Get data plane config data.
 	ct, err := r.GetDataPlaneConfigMapData(logger, contractConfigMap)
 	if err != nil || ct == nil {
 		return statusConditionManager.FailedToGetDataFromConfigMap(err)
 	}
-	logger.Info("Got contract data from config map", zap.Any(base.ContractLogKey, ct))
+	logger.Debug("Got contract data from config map", zap.Any(base.ContractLogKey, ct))
 
 	// Get resource configuration
 	channelResource, err := r.getChannelContractResource(ctx, topic, channel, authContext, topicConfig)
@@ -292,7 +294,6 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 	}
 
 	address, _ := url.Parse(fmt.Sprintf("http://%s.%s.svc.%s", channelService.Name, channelService.Namespace, network.GetClusterDomainName()))
-	fmt.Println("Channel address", zap.Any("address", address))
 	proberAddressable := prober.Addressable{
 		Address: address,
 		ResourceKey: types.NamespacedName{
@@ -301,7 +302,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 		},
 	}
 
-	logger.Info("Going to probe address to check ingress readiness for the channel.", zap.Any("proberAddressable", proberAddressable))
+	logger.Debug("Going to probe address to check ingress readiness for the channel.", zap.Any("proberAddressable", proberAddressable))
 	if status := r.Prober.Probe(ctx, proberAddressable, prober.StatusReady); status != prober.StatusReady {
 		logger.Debug("Ingress is not ready for the channel. Going to requeue.", zap.Any("proberAddressable", proberAddressable))
 		statusConditionManager.ProbesStatusNotReady(status)
@@ -597,7 +598,11 @@ func (r Reconciler) reconcileConsumerGroup(ctx context.Context, channel *messagi
 	expectedCg.Spec.Replicas = ptr.Int32(1) //Must be set for Scaled Object ref
 
 	// TODO: make keda annotation values configurable and maybe unexposed
-	expectedCg.Annotations = kedafunc.SetAutoscalingAnnotations(channel.Annotations)
+	subscriptionAnnotations, err := r.getSubscriptionAnnotations(channel, s)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to extract subscription annotations for subscriber %v: %w", s, err)
+	}
+	expectedCg.Annotations = kedafunc.SetAutoscalingAnnotations(subscriptionAnnotations)
 
 	if secret != nil {
 		expectedCg.Spec.Template.Spec.Auth = &internalscg.Auth{
@@ -681,7 +686,6 @@ func (r *Reconciler) channelConfigMap() (*corev1.ConfigMap, error) {
 	// TODO: do we want to support namespaced channels? they're not supported at the moment.
 
 	namespace := r.DataPlaneNamespace
-	fmt.Printf("channelConfigMap namespace: %s, channelConfigMap name: %s", namespace, r.Env.GeneralConfigMapName)
 	cm, err := r.ConfigMapLister.ConfigMaps(namespace).Get(r.Env.GeneralConfigMapName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s: %w", namespace, r.Env.GeneralConfigMapName, err)
@@ -726,4 +730,19 @@ func (r Reconciler) finalizeConsumerGroup(ctx context.Context, cg *internalscg.C
 		return fmt.Errorf("failed to remove consumer group %s/%s: %w", cg.GetNamespace(), cg.GetName(), err)
 	}
 	return nil
+}
+
+func (r *Reconciler) getSubscriptionAnnotations(channel *messagingv1beta1.KafkaChannel, subscriber *v1.SubscriberSpec) (map[string]string, error) {
+	subscriptions, err := r.SubscriptionLister.Subscriptions(channel.GetNamespace()).List(labels.Everything())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list subscriptions in namespace %s: %w", channel.GetNamespace(), err)
+	}
+
+	for _, s := range subscriptions {
+		if s.UID == subscriber.UID {
+			return s.Annotations, nil
+		}
+	}
+
+	return nil, apierrors.NewNotFound(messaging.SchemeGroupVersion.WithResource("subscriptions").GroupResource(), string(subscriber.UID))
 }

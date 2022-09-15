@@ -24,7 +24,10 @@ import (
 	"github.com/Shopify/sarama"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/utils/pointer"
+	eventingduck "knative.dev/eventing/pkg/apis/duck/v1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/controller"
@@ -52,7 +55,9 @@ import (
 
 	kedaclient "knative.dev/eventing-autoscaler-keda/third_party/pkg/client/injection/client/fake"
 	internalscg "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/internals/kafka/eventing/v1alpha1"
+	kafkainternals "knative.dev/eventing-kafka-broker/control-plane/pkg/apis/internals/kafka/eventing/v1alpha1"
 	fakeconsumergroupinformer "knative.dev/eventing-kafka-broker/control-plane/pkg/client/internals/kafka/injection/client/fake"
+	eventingrekttesting "knative.dev/eventing/pkg/reconciler/testing/v1"
 )
 
 const (
@@ -86,6 +91,1023 @@ func TestReconcileKind(t *testing.T) {
 	testKey := fmt.Sprintf("%s/%s", ChannelNamespace, ChannelName)
 
 	table := TableTest{
+		{
+			Name: "bad workqueue key",
+			// Make sure Reconcile handles bad keys.
+			Key: "too/many/parts",
+		},
+		{
+			Name: "key not found",
+			// Make sure Reconcile handles good keys that don't exist.
+			Key: "foo/not-found",
+		},
+		{
+			Name: "Channel not found",
+			Key:  testKey,
+		},
+		{
+			Name: "Channel is being deleted, probe not ready",
+			Key:  testKey,
+			Objects: []runtime.Object{
+				NewChannel(
+					WithInitKafkaChannelConditions,
+					WithDeletedTimeStamp),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+			},
+			OtherTestData: map[string]interface{}{
+				testProber: probertesting.MockProber(prober.StatusNotReady),
+			},
+		},
+		{
+			Name: "Channel is being deleted, probe ready",
+			Key:  testKey,
+			Objects: []runtime.Object{
+				NewChannel(
+					WithInitKafkaChannelConditions,
+					WithDeletedTimeStamp),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+			},
+			WantErr: true,
+			OtherTestData: map[string]interface{}{
+				testProber: probertesting.MockProber(prober.StatusReady),
+			},
+		},
+		{
+			Name: "Channel is being deleted with contract resource deletion",
+			Key:  testKey,
+			Objects: []runtime.Object{
+				NewChannel(
+					WithInitKafkaChannelConditions,
+					WithDeletedTimeStamp),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapFromContract(&contract.Contract{
+					Generation: 0,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}, env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+				}),
+			},
+			OtherTestData: map[string]interface{}{
+				testProber: probertesting.MockProber(prober.StatusNotReady),
+			},
+		},
+		{
+			Name: "Reconciled normal - no subscription (no cons group) - no auth",
+			Objects: []runtime.Object{
+				NewChannel(),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				ChannelReceiverPod(env.SystemNamespace, map[string]string{
+					base.VolumeGenerationAnnotationKey: "0",
+					"annotation_to_preserve":           "value_to_preserve",
+				}),
+				ChannelDispatcherPod(env.SystemNamespace, map[string]string{
+					base.VolumeGenerationAnnotationKey: "0",
+					"annotation_to_preserve":           "value_to_preserve",
+				}),
+			},
+			Key: testKey,
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+				ChannelReceiverPodUpdate(env.SystemNamespace, map[string]string{
+					"annotation_to_preserve":           "value_to_preserve",
+					base.VolumeGenerationAnnotationKey: "1",
+				}),
+				ChannelDispatcherPodUpdate(env.SystemNamespace, map[string]string{
+					"annotation_to_preserve":           "value_to_preserve",
+					base.VolumeGenerationAnnotationKey: "1",
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantCreates: []runtime.Object{
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewPerChannelService(&env),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						StatusChannelSubscribers(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with delivery",
+			Objects: []runtime.Object{
+				NewChannel(
+					WithChannelDelivery(&eventingduck.DeliverySpec{
+						DeadLetterSink: ServiceDestination,
+						Retry:          pointer.Int32(5),
+					}),
+				),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				ChannelReceiverPod(env.SystemNamespace, map[string]string{
+					base.VolumeGenerationAnnotationKey: "0",
+					"annotation_to_preserve":           "value_to_preserve",
+				}),
+				ChannelDispatcherPod(env.SystemNamespace, map[string]string{
+					base.VolumeGenerationAnnotationKey: "0",
+					"annotation_to_preserve":           "value_to_preserve",
+				}),
+			},
+			Key: testKey,
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+							EgressConfig: &contract.EgressConfig{
+								DeadLetter: ServiceURL,
+								Retry:      5,
+							},
+						},
+					},
+				}),
+				ChannelReceiverPodUpdate(env.SystemNamespace, map[string]string{
+					"annotation_to_preserve":           "value_to_preserve",
+					base.VolumeGenerationAnnotationKey: "1",
+				}),
+				ChannelDispatcherPodUpdate(env.SystemNamespace, map[string]string{
+					"annotation_to_preserve":           "value_to_preserve",
+					base.VolumeGenerationAnnotationKey: "1",
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantCreates: []runtime.Object{
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewPerChannelService(&env),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithChannelDelivery(&eventingduck.DeliverySpec{
+							DeadLetterSink: ServiceDestination,
+							Retry:          pointer.Int32(5),
+						}),
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						StatusChannelSubscribers(),
+						WithChannelDeadLetterSinkURI(ServiceURL),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled failed - no subscription (no cons group) - probe " + prober.StatusNotReady.String(),
+			Objects: []runtime.Object{
+				NewChannel(),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+			},
+			Key: testKey,
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantCreates: []runtime.Object{
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewPerChannelService(&env),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						StatusProbeFailed(prober.StatusNotReady),
+						StatusChannelSubscribers(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+			OtherTestData: map[string]interface{}{
+				testProber: probertesting.MockProber(prober.StatusNotReady),
+			},
+		},
+		{
+			Name: "Reconciled failed - no subscription (no cons group) - probe " + prober.StatusUnknown.String(),
+			Objects: []runtime.Object{
+				NewChannel(),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+			},
+			Key: testKey,
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantCreates: []runtime.Object{
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewPerChannelService(&env),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						StatusProbeFailed(prober.StatusUnknown),
+						StatusChannelSubscribers(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+			OtherTestData: map[string]interface{}{
+				testProber: probertesting.MockProber(prober.StatusUnknown),
+			},
+		},
+		{
+			Name: "Reconciled normal - with single fresh subscriber - cg unknown - no auth",
+			Objects: []runtime.Object{
+				NewChannel(WithSubscribers(Subscriber1(WithFreshSubscriber))),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+					)),
+					ConsumerGroupReplicas(1),
+				),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						WithSubscribers(Subscriber1(WithUnknownSubscriber)),
+						StatusChannelSubscribersUnknown(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with single unready subscriber - cg unknown - no auth",
+			Objects: []runtime.Object{
+				NewChannel(WithSubscribers(Subscriber1(WithUnreadySubscriber))),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+					)),
+					ConsumerGroupReplicas(1),
+				),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						WithSubscribers(Subscriber1(WithUnknownSubscriber)),
+						StatusChannelSubscribersUnknown(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with single ready subscriber - cg unknown - no auth",
+			Objects: []runtime.Object{
+				NewChannel(WithSubscribers(Subscriber1())),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+					)),
+					ConsumerGroupReplicas(1),
+				),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						WithSubscribers(Subscriber1(WithUnknownSubscriber)),
+						StatusChannelSubscribersUnknown(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with single fresh subscriber - existing ready cg with update - no auth",
+			Objects: []runtime.Object{
+				NewChannel(WithSubscribers(Subscriber1(WithFreshSubscriber))),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					ConsumerGroupReady,
+				),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+				{
+					Object: NewConsumerGroup(
+						WithConsumerGroupName(Subscription1UUID),
+						WithConsumerGroupNamespace(ChannelNamespace),
+						WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+						WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+						WithConsumerGroupLabels(ConsumerSubscription1Label),
+						ConsumerGroupConsumerSpec(NewConsumerSpec(
+							ConsumerTopics(ChannelTopic()),
+							ConsumerConfigs(
+								ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+								ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+							),
+							ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+							ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+						)),
+						ConsumerGroupReplicas(1),
+						ConsumerGroupReady,
+					),
+				},
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						WithSubscribers(Subscriber1(WithFreshSubscriber)),
+						StatusChannelSubscribers(),
+						StatusProbeSucceeded,
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with single fresh subscriber - existing cg but failed - no auth",
+			Objects: []runtime.Object{
+				NewChannel(WithSubscribers(Subscriber1(WithFreshSubscriber))),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+					)),
+					ConsumerGroupReplicas(1),
+					WithConsumerGroupFailed("failed to reconcile consumer group,", "internal error"),
+				),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						WithSubscribers(Subscriber1(WithUnreadySubscriber)),
+						StatusChannelSubscribersUnknown(),
+					),
+				},
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with two fresh subscribers - no auth",
+			Objects: []runtime.Object{
+				NewChannel(
+					WithSubscribers(Subscriber1(WithFreshSubscriber)),
+					WithSubscribers(Subscriber2(WithFreshSubscriber)),
+				),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+					)),
+					ConsumerGroupReplicas(1),
+				),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription2UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription2Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber2(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription2URI)),
+					)),
+					ConsumerGroupReplicas(1),
+				),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						WithSubscribers(Subscriber1(WithUnknownSubscriber), Subscriber2(WithUnknownSubscriber)),
+						StatusChannelSubscribersUnknown(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "Reconciled normal - with one fresh subscriber and one removed subscriber (cg removal needed)",
+			Objects: []runtime.Object{
+				NewChannel(
+					WithSubscribers(Subscriber1(WithFreshSubscriber)),
+				),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription2UUID), //removed subscriber
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription2Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber2(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription2URI)),
+					)),
+				),
+			},
+			Key: testKey,
+			WantCreates: []runtime.Object{
+				NewPerChannelService(&env),
+				NewConsumerGroup(
+					WithConsumerGroupName(Subscription1UUID),
+					WithConsumerGroupNamespace(ChannelNamespace),
+					WithConsumerGroupOwnerRef(kmeta.NewControllerRef(NewChannel())),
+					WithConsumerGroupMetaLabels(OwnerAsChannelLabel),
+					WithConsumerGroupLabels(ConsumerSubscription1Label),
+					ConsumerGroupConsumerSpec(NewConsumerSpec(
+						ConsumerTopics(ChannelTopic()),
+						ConsumerConfigs(
+							ConsumerGroupIdConfig(consumerGroup(NewChannel(), GetSubscriberSpec(Subscriber1(WithFreshSubscriber)))),
+							ConsumerBootstrapServersConfig(ChannelBootstrapServers),
+						),
+						ConsumerDelivery(NewConsumerSpecDelivery(internals.Ordered)),
+						ConsumerSubscriber(NewConsumerSpecSubscriber(Subscription1URI)),
+					)),
+					ConsumerGroupReplicas(1),
+				),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						WithSubscribers(Subscriber1(WithUnknownSubscriber)),
+						StatusChannelSubscribersUnknown(),
+					),
+				},
+			},
+			WantDeletes: []clientgotesting.DeleteActionImpl{
+				{
+					ActionImpl: clientgotesting.ActionImpl{
+						Namespace: ChannelNamespace,
+						Resource: schema.GroupVersionResource{
+							Group:    kafkainternals.SchemeGroupVersion.Group,
+							Version:  kafkainternals.SchemeGroupVersion.Version,
+							Resource: "consumergroups",
+						},
+					},
+					Name: Subscription2UUID,
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
+		{
+			Name: "channel configmap not resolved",
+			Objects: []runtime.Object{
+				NewChannel(),
+			},
+			Key:                     testKey,
+			WantErr:                 true,
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigNotParsed(fmt.Sprintf(`failed to get configmap %s/%s: configmap %q not found`, env.SystemNamespace, DefaultEnv.GeneralConfigMapName, DefaultEnv.GeneralConfigMapName)),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+				Eventf(
+					corev1.EventTypeWarning,
+					"InternalError",
+					fmt.Sprintf(`failed to get contract configuration: failed to get configmap %s/%s: configmap %q not found`, env.SystemNamespace, DefaultEnv.GeneralConfigMapName, DefaultEnv.GeneralConfigMapName),
+				),
+			},
+		},
+		{
+			Name: "channel configmap does not have bootstrap servers",
+			Objects: []runtime.Object{
+				NewChannel(),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					"foo": "bar",
+				}),
+			},
+			Key:     testKey,
+			WantErr: true,
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigNotParsed("unable to get bootstrapServers from configmap: invalid configuration bootstrapServers: [] - ConfigMap data: map[foo:bar]"),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+				Eventf(
+					corev1.EventTypeWarning,
+					"InternalError",
+					"failed to get contract configuration: unable to get bootstrapServers from configmap: invalid configuration bootstrapServers: [] - ConfigMap data: map[foo:bar]",
+				),
+			},
+		},
+		{
+			Name: "channel configmap has blank bootstrap servers",
+			Objects: []runtime.Object{
+				NewChannel(),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: "",
+				}),
+			},
+			Key:                     testKey,
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantErr:                 true,
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithInitKafkaChannelConditions,
+						StatusConfigNotParsed("unable to get bootstrapServers from configmap: invalid configuration bootstrapServers: [] - ConfigMap data: map[bootstrap.servers:]"),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+				Eventf(
+					corev1.EventTypeWarning,
+					"InternalError",
+					"failed to get contract configuration: unable to get bootstrapServers from configmap: invalid configuration bootstrapServers: [] - ConfigMap data: map[bootstrap.servers:]",
+				),
+			},
+		},
+		{
+			Name: "Channel spec is used properly",
+			Objects: []runtime.Object{
+				NewChannel(
+					WithNumPartitions(3),
+					WithReplicationFactor(4),
+					WithRetentionDuration("1000"),
+				),
+				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
+					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
+				}),
+			},
+			OtherTestData: map[string]interface{}{
+				TestExpectedDataNumPartitions: int32(3),
+				TestExpectedReplicationFactor: int16(4),
+			},
+			Key: testKey,
+			WantUpdates: []clientgotesting.UpdateActionImpl{
+				ConfigMapUpdate(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, env.ContractConfigMapFormat, &contract.Contract{
+					Generation: 1,
+					Resources: []*contract.Resource{
+						{
+							Uid:              ChannelUUID,
+							Topics:           []string{ChannelTopic()},
+							BootstrapServers: ChannelBootstrapServers,
+							Reference:        ChannelReference(),
+							Ingress: &contract.Ingress{
+								Host: receiver.Host(ChannelNamespace, ChannelName),
+							},
+						},
+					},
+				}),
+			},
+			SkipNamespaceValidation: true, // WantCreates compare the channel namespace with configmap namespace, so skip it
+			WantCreates: []runtime.Object{
+				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				NewPerChannelService(&env),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{
+				{
+					Object: NewChannel(
+						WithNumPartitions(3),
+						WithReplicationFactor(4),
+						WithRetentionDuration("1000"),
+						WithInitKafkaChannelConditions,
+						StatusConfigParsed,
+						StatusConfigMapUpdatedReady(&env),
+						StatusTopicReadyWithName(ChannelTopic()),
+						ChannelAddressable(&env),
+						StatusProbeSucceeded,
+						StatusChannelSubscribers(),
+					),
+				},
+			},
+			WantPatches: []clientgotesting.PatchActionImpl{
+				patchFinalizers(),
+			},
+			WantEvents: []string{
+				finalizerUpdatedEvent,
+			},
+		},
 		{
 			Name: "Reconciled normal - with single fresh subscriber - with auth - SASL",
 			Objects: []runtime.Object{
@@ -190,12 +1212,15 @@ func TestReconcileKind(t *testing.T) {
 			Objects: []runtime.Object{
 				NewChannel(
 					WithSubscribers(Subscriber1(WithFreshSubscriber)),
-					WithAutoscalingAnnotationsChannel(),
 				),
 				NewConfigMapWithTextData(env.SystemNamespace, DefaultEnv.GeneralConfigMapName, map[string]string{
 					kafka.BootstrapServersConfigMapKey: ChannelBootstrapServers,
 				}),
 				NewConfigMapWithBinaryData(env.DataPlaneConfigMapNamespace, env.ContractConfigMapName, nil),
+				eventingrekttesting.NewSubscription(Subscription1Name, ChannelNamespace,
+					eventingrekttesting.WithSubscriptionUID(Subscription1UUID),
+					WithAutoscalingAnnotationsSubscription(),
+				),
 			},
 			Key: testKey,
 			WantCreates: []runtime.Object{
@@ -247,7 +1272,6 @@ func TestReconcileKind(t *testing.T) {
 						StatusProbeSucceeded,
 						WithSubscribers(Subscriber1(WithUnknownSubscriber)),
 						StatusChannelSubscribersUnknown(),
-						WithAutoscalingAnnotationsChannel(),
 					),
 				},
 			},
@@ -442,6 +1466,7 @@ func TestReconcileKind(t *testing.T) {
 			},
 			ConfigMapLister:     listers.GetConfigMapLister(),
 			ServiceLister:       listers.GetServiceLister(),
+			SubscriptionLister:  listers.GetSubscriptionLister(),
 			ConsumerGroupLister: listers.GetConsumerGroupLister(),
 			InternalsClient:     fakeconsumergroupinformer.Get(ctx),
 			Prober:              proberMock,

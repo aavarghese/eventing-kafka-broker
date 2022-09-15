@@ -91,10 +91,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, trigger *eventing.Trigge
 		// Actually check if the broker doesn't exist.
 		// Note: do not introduce another `broker` variable with `:`
 		broker, err = r.EventingClient.EventingV1().Brokers(trigger.Namespace).Get(ctx, trigger.Spec.Broker, metav1.GetOptions{})
-
 		if apierrors.IsNotFound(err) {
-
-			logger.Debug("broker not found", zap.String("finalizeDuringReconcile", "notFound"))
 			return fmt.Errorf("failed to get broker: %w", err)
 		}
 	}

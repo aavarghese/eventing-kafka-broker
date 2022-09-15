@@ -116,10 +116,14 @@ spec:
               value: "8"
             - name: JAVA_TOOL_OPTIONS
               value: "-XX:+CrashOnOutOfMemoryError"
+<<<<<<< HEAD
           resources:
             requests:
               cpu: 200m
               memory: 300Mi
+=======
+          # TODO set resources (limits and requests)
+>>>>>>> 2cf188bae (Authentication fixes with legacy secrets, staTefulset missing volume, using subscription annotations)
           livenessProbe:
             failureThreshold: 3
             httpGet:
