@@ -128,7 +128,7 @@ func (r *Reconciler) reconcileKind(ctx context.Context, broker *eventing.Broker)
 
 	logger.Debug("Got contract config map")
 
-	/*if !r.IsReceiverRunning() || !r.IsDispatcherRunning() {
+	/*if !r.IsReceiverRunning() || !r.IsDispatcherRunning() {  //TODO: Broker dispatcher V2 is a statefulset - no pods running yet
 		return statusConditionManager.DataPlaneNotAvailable()
 	}
 	statusConditionManager.DataPlaneAvailable()*/
@@ -162,8 +162,13 @@ func (r *Reconciler) reconcileKind(ctx context.Context, broker *eventing.Broker)
 		}
 	}
 
+	authContext, err := security.ResolveAuthContextFromLegacySecret(secret)
+	if err != nil {
+		return statusConditionManager.FailedToResolveConfig(fmt.Errorf("failed to resolve auth context: %w", err))
+	}
+
 	// get security option for Sarama with secret info in it
-	securityOption := security.NewSaramaSecurityOptionFromSecret(secret)
+	securityOption := security.NewSaramaSecurityOptionFromSecret(authContext.VirtualSecret)
 
 	if err := r.TrackSecret(secret, broker); err != nil {
 		return fmt.Errorf("failed to track secret: %w", err)

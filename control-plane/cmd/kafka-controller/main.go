@@ -34,6 +34,7 @@ import (
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/consumergroup"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/sink"
 	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/source"
+	"knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/trigger"
 	tv2 "knative.dev/eventing-kafka-broker/control-plane/pkg/reconciler/trigger/v2"
 )
 

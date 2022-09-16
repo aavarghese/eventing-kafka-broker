@@ -246,10 +246,10 @@ func (s *StatefulSetScheduler) scheduleVPod(vpod scheduler.VPod) ([]duckv1alpha1
 			logger.Info("reverting to previous placements")
 			s.reservePlacements(vpod, existingPlacements) //rebalancing doesn't care about new placements since all vreps will be re-placed
 			delete(s.pending, vpod.GetKey())              //rebalancing doesn't care about pending since all vreps will be re-placed
-			return existingPlacements, scheduler.ErrNotEnoughReplicas
+			return existingPlacements, nil
 		}
 
-		return placements, scheduler.ErrNotEnoughReplicas
+		return placements, nil
 	}
 
 	logger.Infow("scheduling successful", zap.Any("placement", placements))
