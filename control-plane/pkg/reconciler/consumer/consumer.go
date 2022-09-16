@@ -192,7 +192,9 @@ func (r Reconciler) reconcileAuth(ctx context.Context, c *kafkainternals.Consume
 		if err != nil {
 			return fmt.Errorf("failed to resolve auth context: %w", err)
 		}
-		resource.Auth = &contract.Resource_MultiAuthSecret{MultiAuthSecret: authContext.MultiSecretReference}
+		resource.Auth = &contract.Resource_MultiAuthSecret{
+			MultiAuthSecret: authContext.MultiSecretReference,
+		}
 		return nil
 	}
 
@@ -201,13 +203,14 @@ func (r Reconciler) reconcileAuth(ctx context.Context, c *kafkainternals.Consume
 		if err != nil {
 			return fmt.Errorf("failed to get secret: %w", err)
 		}
-		resource.Auth = &contract.Resource_AuthSecret{
-			AuthSecret: &contract.Reference{
-				Uuid:      string(secret.UID),
-				Namespace: secret.Namespace,
-				Name:      secret.Name,
-				Version:   secret.ResourceVersion,
-			},
+
+		authContext, err := security.ResolveAuthContextFromLegacySecret(secret)
+		if err != nil {
+			return err
+		}
+
+		resource.Auth = &contract.Resource_MultiAuthSecret{
+			MultiAuthSecret: authContext.MultiSecretReference,
 		}
 		return nil
 	}
