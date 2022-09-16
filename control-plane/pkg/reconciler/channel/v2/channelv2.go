@@ -165,7 +165,6 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 	}
 
 	authContext, err := security.ResolveAuthContextFromLegacySecret(secret)
-	logger.Info("authContext", zap.Any("authContext", authContext))
 	if err != nil {
 		return statusConditionManager.FailedToResolveConfig(fmt.Errorf("failed to resolve auth context: %w", err))
 	}
@@ -185,26 +184,11 @@ func (r *Reconciler) reconcileKind(ctx context.Context, channel *messagingv1beta
 		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting cluster admin sarama config: %w", err))
 	}
 
-	// Manually commit the offsets in KafkaChannel controller.
-	// That's because we want to make sure we initialize the offsets within the controller
-	// before dispatcher actually starts consuming messages.
-	kafkaClientSaramaConfig, err := kafka.GetSaramaConfig(saramaSecurityOption, kafka.DisableOffsetAutoCommitConfigOption)
-	logger.Info("kafkaClientSaramaConfig", zap.Any("kafkaClientSaramaConfig", kafkaClientSaramaConfig))
-	if err != nil {
-		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting client sarama config: %w", err))
-	}
-
 	kafkaClusterAdminClient, err := r.NewKafkaClusterAdminClient(topicConfig.BootstrapServers, kafkaClusterAdminSaramaConfig)
 	if err != nil {
 		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("cannot obtain Kafka cluster admin, %w", err))
 	}
 	defer kafkaClusterAdminClient.Close()
-
-	kafkaClient, err := r.NewKafkaClient(topicConfig.BootstrapServers, kafkaClientSaramaConfig)
-	if err != nil {
-		return statusConditionManager.FailedToCreateTopic(topicName, fmt.Errorf("error getting sarama config: %w", err))
-	}
-	defer kafkaClient.Close()
 
 	// create the topic
 	topic, err := kafka.CreateTopicIfDoesntExist(kafkaClusterAdminClient, logger, topicName, topicConfig)
