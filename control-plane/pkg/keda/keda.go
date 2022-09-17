@@ -157,7 +157,7 @@ func GenerateTriggerAuthentication(cg *kafkainternals.ConsumerGroup, saslType *s
 	}
 
 	if cg.Spec.Template.Spec.Auth.AuthSpec != nil && cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name != "" {
-		sasl := kedav1alpha1.AuthSecretTargetRef{Parameter: "sasl", Name: cg.Spec.Template.Spec.Auth.AuthSpec.Secret.Ref.Name, Key: "sasl.mechanism"}
+		sasl := kedav1alpha1.AuthSecretTargetRef{Parameter: "sasl", Name: secret.Name, Key: "sasl"}
 		secretTargetRefs = append(secretTargetRefs, sasl)
 
 		secret.StringData["tls"] = "enable"

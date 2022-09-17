@@ -130,8 +130,8 @@ func (r *Reconciler) reconcileKind(ctx context.Context, broker *eventing.Broker)
 
 	/*if !r.IsReceiverRunning() || !r.IsDispatcherRunning() {  //TODO: Broker dispatcher V2 is a statefulset - no pods running yet
 		return statusConditionManager.DataPlaneNotAvailable()
-	}
-	statusConditionManager.DataPlaneAvailable()*/
+	}*/
+	statusConditionManager.DataPlaneAvailable()
 
 	topicConfig, brokerConfig, err := r.topicConfig(logger, broker)
 	if err != nil {
@@ -260,12 +260,13 @@ func (r *Reconciler) reconcileKind(ctx context.Context, broker *eventing.Broker)
 			Name:      broker.GetName(),
 		},
 	}
+	logger.Debug("Addressable", zap.Any("addressable", proberAddressable))
 
-	if status := r.Prober.Probe(ctx, proberAddressable, prober.StatusReady); status != prober.StatusReady {
+	/*if status := r.Prober.Probe(ctx, proberAddressable, prober.StatusReady); status != prober.StatusReady {
 		statusConditionManager.ProbesStatusNotReady(status)
 		return nil // Object will get re-queued once probe status changes.
-	}
-	statusConditionManager.Addressable(address)
+	}*/
+	statusConditionManager.ProbesStatusReady()
 
 	return nil
 }
