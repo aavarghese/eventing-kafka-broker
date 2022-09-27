@@ -1,0 +1,31 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eventdisplay
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    run: eventdisplay
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: eventdisplay
+  name: eventdisplay
+spec:
+  containers:
+  - image: docker.io/avarghese23/customizeeventdisplay-71d3d54d1473d6e5219bb36ec2b76a98:latest
+    name: eventdisplay
+    env:
+    - name: delay
+      value: "10"
+    ports:
+    - containerPort: 8080
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always

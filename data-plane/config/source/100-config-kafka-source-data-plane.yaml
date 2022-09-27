@@ -97,7 +97,7 @@ data:
     value.deserializer=io.cloudevents.kafka.CloudEventDeserializer
     fetch.min.bytes=1
     heartbeat.interval.ms=3000
-    max.partition.fetch.bytes=65536
+    max.partition.fetch.bytes=512
     session.timeout.ms=10000
     # ssl.key.password=
     # ssl.keystore.location=
@@ -111,10 +111,10 @@ data:
     default.api.timeout.ms=2000
     enable.auto.commit=false
     exclude.internal.topics=true
-    fetch.max.bytes=52428800
+    fetch.max.bytes=512
     isolation.level=read_uncommitted
     max.poll.interval.ms=300000
-    max.poll.records=50
+    max.poll.records=10
     partition.assignment.strategy=org.apache.kafka.clients.consumer.StickyAssignor
     receive.buffer.bytes=65536
     request.timeout.ms=2000
@@ -157,4 +157,4 @@ data:
     # ssl.trustmanager.algorithm
   config-kafka-source-webclient.properties: |
     idleTimeout=10000
-    maxPoolSize=100
+    maxPoolSize=30

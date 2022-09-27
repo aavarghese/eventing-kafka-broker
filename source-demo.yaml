@@ -1,0 +1,42 @@
+apiVersion: sources.knative.dev/v1beta1
+kind: KafkaSource
+metadata:
+  name: kafka-source-demo
+  annotations:
+    eventing.knative.dev/broker.class: Kafka
+    autoscaling.knative.dev/class: keda.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "0" 
+    autoscaling.knative.dev/maxScale: "12" 
+    keda.autoscaling.knative.dev/pollingInterval: "3" 
+    keda.autoscaling.knative.dev/cooldownPeriod: "10" 
+spec:
+  consumers: 12
+  consumerGroup: my-demo-group
+  bootstrapServers: 
+  - kafka-0.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  - kafka-1.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  - kafka-2.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  topics:
+  - my-demo-topic
+  net:
+    sasl:
+      enable: true
+      type:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: type
+      user:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: username
+      password:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: password
+    tls:
+      enable: true
+  sink:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay
