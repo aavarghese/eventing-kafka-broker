@@ -1,0 +1,33 @@
+apiVersion: sources.knative.dev/v1beta1
+kind: KafkaSource
+metadata:
+  name: kafka-source-3
+spec:
+  consumers: 10
+  consumerGroup: knative-group-1
+  bootstrapServers: 
+  - "my-cluster-kafka-bootstrap.kafka:9095"
+  topics:
+  - fruits
+  net:
+    sasl:
+      enable: true
+      type:
+        secretKeyRef:
+          name: strimzi-sasl-plain-secret-legacy
+          key: saslType
+      user:
+        secretKeyRef:
+          name: strimzi-sasl-plain-secret-legacy
+          key: username
+      password:
+        secretKeyRef:
+          name: strimzi-sasl-plain-secret-legacy
+          key: password
+    tls:
+      enable: true
+  sink:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay

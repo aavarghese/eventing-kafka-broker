@@ -1,0 +1,20 @@
+apiVersion: messaging.knative.dev/v1beta1
+kind: KafkaChannel
+metadata:
+  name: kafka-channel
+  annotations:
+    autoscaling.knative.dev/class: keda.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "0" 
+    autoscaling.knative.dev/maxScale: "5" 
+    keda.autoscaling.knative.dev/pollingInterval: "3" 
+    keda.autoscaling.knative.dev/cooldownPeriod: "10" 
+    keda.autoscaling.knative.dev/kafkaLagThreshold: "2"  
+spec:
+  numPartitions: 10
+  replicationFactor: 3
+  subscribers:
+    - subscriberUri: http://eventdisplay.default.svc.cluster.local
+      uid: "5e4e9b73-927d-4a5a-a7b3-1f3c8d9ac0da"
+
+# kubectl create secret generic kafka-secret-channel --from-literal=password=gnFd3UlXUYTQMMzszwQwTL3eCJ7ORRiynuOuwtmNcc1c --from-literal=user=token --from-literal=protocol=SASL_SSL --from-literal=saslType=PLAIN
+# kubectl create secret -n knative-eventing generic kafka-secret-channel --from-literal=password=gnFd3UlXUYTQMMzszwQwTL3eCJ7ORRiynuOuwtmNcc1c --from-literal=user=token --from-literal=protocol=SASL_PLAINTEXT --from-literal=sasl.mechanism=SCRAM-SHA-512

@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-broker
+  namespace: knative-eventing
+data:
+  default.topic: ""
+  default.topic.partitions: "10"
+  default.topic.replication.factor: "3"
+  #bootstrap.servers: "kafka-0.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093,kafka-2.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093,kafka-1.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093"
+  bootstrap.servers: "my-cluster-kafka-bootstrap.kafka:9095"
+  auth.secret.ref.name: strimzi-sasl-plain-secret
+
+# kubectl create secret generic kafka-secret-broker --from-literal=password=gnFd3UlXUYTQMMzszwQwTL3eCJ7ORRiynuOuwtmNcc1c --from-literal=user=token --from-literal=protocol=SASL_PLAINTEXT --from-literal=sasl.mechanism=SCRAM-SHA-512 --from-literal=saslType=SCRAM-SHA-512
+
+---
+
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: broker
+  namespace: knative-eventing
+  #annotations:
+   # kafka.eventing.knative.dev/external.topic: knative-demo-topic
+spec:
+  config:
+    apiVersion: v1
+    kind: ConfigMap
+    name: config-broker
+    namespace: knative-eventing
+
+---
+
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: trigger-1
+  namespace: knative-eventing
+  annotations:
+    eventing.knative.dev/broker.class: Kafka
+    autoscaling.knative.dev/class: keda.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "0" 
+    autoscaling.knative.dev/maxScale: "5" 
+    keda.autoscaling.knative.dev/pollingInterval: "3" 
+    keda.autoscaling.knative.dev/cooldownPeriod: "10" 
+    keda.autoscaling.knative.dev/kafkaLagThreshold: "2"
+    keda.autoscaling.knative.dev/kafkaActivationLagThreshold: "1"
+spec:
+  broker: broker
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay
+
+---
+
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: trigger-2
+  namespace: knative-eventing
+  annotations:
+    eventing.knative.dev/broker.class: Kafka
+    autoscaling.knative.dev/class: keda.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "0" 
+    autoscaling.knative.dev/maxScale: "5" 
+    keda.autoscaling.knative.dev/pollingInterval: "3" 
+    keda.autoscaling.knative.dev/cooldownPeriod: "10" 
+    keda.autoscaling.knative.dev/kafkaLagThreshold: "2"
+    keda.autoscaling.knative.dev/kafkaActivationLagThreshold: "1"
+spec:
+  broker: broker
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay

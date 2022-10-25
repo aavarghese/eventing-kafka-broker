@@ -1,0 +1,10 @@
+apiVersion: messaging.knative.dev/v1beta1
+kind: KafkaChannel
+metadata:
+  name: kafka-channel-1 
+spec:
+  numPartitions: 10
+  replicationFactor: 3
+  subscribers:
+    - subscriberUri: http://eventdisplay.default.svc.cluster.local
+      uid: "5e4e9b73-927d-4a5a-a7b3-1f3c8d9ac0da"
