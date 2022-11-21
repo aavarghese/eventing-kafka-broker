@@ -1,0 +1,35 @@
+apiVersion: sources.knative.dev/v1beta1
+kind: KafkaSource
+metadata:
+  name: kafka-source-1
+spec:
+  consumers: 10
+  consumerGroup: knative-group-1
+  bootstrapServers: 
+  - kafka-0.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  - kafka-1.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  - kafka-2.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  topics:
+  - fruits
+  net:
+    sasl:
+      enable: true
+      type:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: type
+      user:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: username
+      password:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: password
+    tls:
+      enable: true
+  sink:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay

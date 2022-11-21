@@ -1,0 +1,46 @@
+apiVersion: sources.knative.dev/v1beta1
+kind: KafkaSource
+metadata:
+  name: kafka-source
+  annotations:
+    autoscaling.knative.dev/class: keda.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "0" 
+    autoscaling.knative.dev/maxScale: "5" 
+    keda.autoscaling.knative.dev/pollingInterval: "3" 
+    keda.autoscaling.knative.dev/cooldownPeriod: "10" 
+    keda.autoscaling.knative.dev/kafkaLagThreshold: "2" 
+    keda.autoscaling.knative.dev/kafkaActivationLagThreshold: "1"
+spec:
+  consumers: 30
+  consumerGroup: knative-group
+  bootstrapServers: 
+  - kafka-0.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  - kafka-1.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  - kafka-2.mh-lbnyvywmvwwvpcmssqgl-4c201a12d7add7c99d2b22e361c6f175-0000.us-south.containers.appdomain.cloud:9093
+  topics:
+  - fruits
+  net:
+    sasl:
+      enable: true
+      type:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: type
+      user:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: username
+      password:
+        secretKeyRef:
+          name: kafka-secret-source
+          key: password
+    tls:
+      enable: true
+  sink:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay
+
+# kubectl create secret generic kafka-secret-source --from-literal=password=gnFd3UlXUYTQMMzszwQwTL3eCJ7ORRiynuOuwtmNcc1c --from-literal=username=token --from-literal=type=PLAIN
+# kubectl create secret generic confluent-secret --from-literal=protocol=SASL_SSL --from-literal=sasl.mechanism=PLAIN --from-literal=user=token --from-literal=password=gnFd3UlXUYTQMMzszwQwTL3eCJ7ORRiynuOuwtmNcc1c

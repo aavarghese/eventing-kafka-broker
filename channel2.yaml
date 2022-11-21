@@ -1,0 +1,57 @@
+apiVersion: messaging.knative.dev/v1beta1
+kind: KafkaChannel
+metadata:
+  name: kafka-channel-2 
+spec:
+  numPartitions: 10
+  replicationFactor: 3
+
+---
+
+apiVersion: messaging.knative.dev/v1
+kind: Subscription
+metadata:
+  name: subscription-1
+  annotations:
+    autoscaling.knative.dev/class: keda.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "0"
+    autoscaling.knative.dev/maxScale: "5"
+    keda.autoscaling.knative.dev/pollingInterval: "3"
+    keda.autoscaling.knative.dev/cooldownPeriod: "10"
+    keda.autoscaling.knative.dev/kafkaLagThreshold: "2"
+    keda.autoscaling.knative.dev/kafkaActivationLagThreshold: "1"
+spec:
+  channel:
+    apiVersion: messaging.knative.dev/v1beta1
+    kind: KafkaChannel
+    name: kafka-channel-2
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay
+
+---
+
+apiVersion: messaging.knative.dev/v1
+kind: Subscription
+metadata:
+  name: subscription-2
+  annotations:
+    autoscaling.knative.dev/class: keda.autoscaling.knative.dev
+    autoscaling.knative.dev/minScale: "0"
+    autoscaling.knative.dev/maxScale: "5"
+    keda.autoscaling.knative.dev/pollingInterval: "3"
+    keda.autoscaling.knative.dev/cooldownPeriod: "10"
+    keda.autoscaling.knative.dev/kafkaLagThreshold: "2"
+    keda.autoscaling.knative.dev/kafkaActivationLagThreshold: "1"
+spec:
+  channel:
+    apiVersion: messaging.knative.dev/v1beta1
+    kind: KafkaChannel
+    name: kafka-channel-2
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: eventdisplay

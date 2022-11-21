@@ -35,4 +35,4 @@ data:
     controller.autoscaler: "disabled"
   dispatcher.rate-limiter: "disabled"
   dispatcher.ordered-executor-metrics: "disabled"
-  controller.autoscaler: "disabled"
+  controller.autoscaler: "enabled"
